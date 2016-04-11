@@ -1,0 +1,41 @@
+java.math.BigDecimal bd = new java.math.BigDecimal(8989.675);
+System.out.println(bd.toString());
+System.out.println(bd.doubleValue());
+System.out.println(new java.text.SimpleDateFormat("yyMMdd").format(new java.util.Date()));
+
+
+String name =  "g.x.service";
+System.out.println(name.substring(0, name.length()-8));
+String format = "y-m-d";
+System.out.println(format.replaceAll("y|Y", "2012"));
+System.out.println(format);
+
+String path ="e:\\test\\guanbg";
+System.out.println(path);
+System.out.println(path.replaceAll("\\\\", "/"));
+
+String fileSaveName = "ac.bb.cc";
+String ftyp = fileSaveName.substring(fileSaveName.lastIndexOf('.')+1,fileSaveName.length());
+System.out.println(ftyp);
+
+int[] redBalls = {4,6,25,13,14,15,8,24,26,29};
+java.util.Arrays.sort(redBalls);
+for(int redBall : redBalls){
+	System.out.println(redBall);
+}
+
+
+
+java.util.regex.Pattern namePattern = java.util.regex.Pattern.compile("^#\\{(.+)}$");
+String name = "#dd{in.test}";
+System.out.println(namePattern.matcher(name).matches());
+System.out.println(namePattern.matcher(name).replaceAll("$1"));
+String d = "30X40";
+System.out.println(d.split("\\D")[0]);
+System.out.println(d.split("\\D")[1]);
+
+String s = "a\nbsdfas\ndfsd";
+System.out.println(s);
+System.out.println("===================================");
+String s2 = s.replaceAll("\n", "\\\\n");
+System.out.println(s2);

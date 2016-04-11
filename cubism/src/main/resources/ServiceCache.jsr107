@@ -1,0 +1,234 @@
+package com.platform.cubism.service;
+
+import java.util.Iterator;
+
+import javax.cache.Cache;
+import javax.cache.Cache.Entry;
+import javax.cache.CacheManager;
+import javax.cache.Caching;
+import javax.cache.spi.CachingProvider;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.platform.cubism.base.Json;
+import com.platform.cubism.service.config.ServiceConfig;
+import com.platform.cubism.service.config.ServiceConfigManager;
+import com.platform.cubism.util.CubismHelper;
+
+public class ServiceCache {
+	private static final Logger logger = LoggerFactory.getLogger(ServiceCache.class);
+	private static final ThreadLocal<String> serviceCacheKey = new ThreadLocal<String>();	
+	private static CacheManager manager;
+	
+	public static void init(){//系统使用
+		CachingProvider provider = Caching.getCachingProvider();
+		try {
+			manager = provider.getCacheManager(ServiceCache.class.getResource("/ehcache-jsr107.xml").toURI(), ServiceCache.class.getClassLoader());
+		} catch (Exception e) {
+			logger.error("加载缓存配置文件ehcache.xml错误：" + e.getMessage());
+			if(logger.isDebugEnabled()){
+				e.printStackTrace();
+			}
+			manager = provider.getCacheManager();
+		}
+		logger.info("系统缓存初始化完毕");
+	}
+	
+	public static void close(){//系统使用
+		manager.close();
+		logger.info("系统缓存已关闭");
+	}
+	
+	public static void setServiceCacheKey(String key){//系统使用，线程安全变量，暂存需要设置缓存的KEY值
+		if(key == null || key.length() <= 0){
+			serviceCacheKey.remove();
+			return;
+		}
+		serviceCacheKey.set(key);
+		
+		if(logger.isDebugEnabled()){
+			logger.debug("设置本地线程变量[serviceCacheKey]："+key);
+		}
+	}
+	
+	public static String getServiceCacheKey(){//系统使用，线程安全变量，暂存需要设置缓存的KEY值
+		if(logger.isDebugEnabled()){
+			logger.debug("返回本地线程变量[serviceCacheKey]："+serviceCacheKey.get());
+		}
+		return serviceCacheKey.get();
+	}
+	
+	public static Json getServiceCache(String serviceName){
+		if(serviceName == null || serviceName.length() <= 0){
+			return null;
+		}
+		String serviceId = CubismHelper.getServiceName(serviceName);
+		if(serviceId == null || serviceId.length() <= 0){
+			return null;
+		}
+		ServiceConfig cfg = ServiceConfigManager.getService(serviceId);
+		String cacheName = cfg.getCache();
+		if(cacheName == null || cacheName.length() <= 0){
+			return null;
+		}
+		Cache<String,Json> cache = manager.getCache(cacheName);
+		if(cache == null){
+			return null;
+		}
+		String key = serviceId + "["+getServiceCacheKey()+"]";
+		if(logger.isDebugEnabled()){
+			logger.debug("缓存主键[get]："+key);
+		}
+		Json ret = cache.get(key);
+		if(ret == null || ret.isEmpty()){
+			cache.remove(key);
+			return null;
+		}
+		return ret;
+	}
+	
+	public static void setServiceCache(String serviceName, Json value){
+		if(serviceName == null || serviceName.length() <= 0){
+			return ;
+		}
+		String serviceId = CubismHelper.getServiceName(serviceName);
+		if(serviceId == null || serviceId.length() <= 0){
+			return ;
+		}
+		ServiceConfig cfg = ServiceConfigManager.getService(serviceId);
+		String cacheName = cfg.getCache();
+		if(cacheName == null || cacheName.length() <= 0){
+			return ;
+		}
+		Cache<String,Json> cache = manager.getCache(cacheName);
+		if(cache == null){
+			return;
+		}
+		
+		String key = serviceId + "["+getServiceCacheKey()+"]";
+		if(logger.isDebugEnabled()){
+			logger.debug("缓存主键[put]："+key);
+		}
+		cache.put(key, value);
+	}
+	
+	public static void clearServiceCache(String serviceName){//暂时用线程，后面用队列进行处理
+		if(serviceName == null || serviceName.length() <= 0){
+			return ;
+		}
+		String serviceId = CubismHelper.getServiceName(serviceName);
+		if(serviceId == null || serviceId.length() <= 0){
+			return ;
+		}
+		ServiceConfig cfg = ServiceConfigManager.getService(serviceId);
+		String updateCacheName = cfg.getUpdatecache();
+		if(updateCacheName == null || updateCacheName.length() <= 0){
+			return ;
+		}
+		if(logger.isDebugEnabled()){
+			logger.debug("清楚缓存："+updateCacheName);
+		}
+		new Thread(new ClearCacheThread(updateCacheName)).start();
+	}
+	
+	public static void clearCache(String perfix, String cacheName){
+		if(cacheName == null || cacheName.length() <= 0){
+			return;
+		}
+		Cache<Object, Object> cache = manager.getCache(cacheName);
+		if(cache == null){
+			return;
+		}
+		if(perfix == null || perfix.length() <= 0){
+			cache.clear();
+			return;
+		}
+		
+		String key;
+		String[] keys = perfix.split("\\s*,\\s*|\\s*;\\s*|\\s");
+		Object objkey;
+		Iterator<Entry<Object, Object>> iterator = cache.iterator();
+		while(iterator.hasNext()){
+			objkey = iterator.next().getKey();
+			key = objkey.toString();
+			for (String k : keys) {
+				if(key.startsWith(k) || key.toLowerCase().startsWith(k.toLowerCase())){
+					cache.remove(objkey);
+				}
+			}
+		}		
+	}
+	
+	public static void setCache(String key, Json value, String cacheName){
+		Cache<String,Json> cache = manager.getCache(cacheName);
+		if(cache == null){
+			return;
+		}
+		//cache.putIfAbsent(key, value);
+		cache.put(key, value);
+	}
+	
+	public static Json getCache(String key, String cacheName){
+		Cache<String,Json> cache = manager.getCache(cacheName);
+		if(cache == null){
+			return null;
+		}
+		return cache.get(key);
+	}
+	
+	private static class ClearCacheThread implements Runnable {
+		private String perfix;
+		
+		public ClearCacheThread(String perfix){
+			this.perfix = perfix;
+		}
+		
+		@Override
+		public void run() {
+			if(perfix == null || perfix.length() <= 0){
+				return;
+			}
+			Iterable<String> cacheNames = manager.getCacheNames();
+			if(cacheNames == null){
+				return;
+			}
+			Iterator<String> cacheNamesItr = cacheNames.iterator();
+			if(cacheNamesItr == null){
+				return;
+			}
+			while(cacheNamesItr.hasNext()){
+				clearCache(perfix,cacheNamesItr.next());
+			}
+		}
+		
+		private void clearCache(String perfix, String cacheName){
+			if(cacheName == null || cacheName.length() <= 0){
+				return;
+			}
+			Cache<Object, Object> cache = manager.getCache(cacheName);
+			if(cache == null){
+				return;
+			}
+			if(perfix == null || perfix.length() <= 0){
+				cache.clear();
+				return;
+			}
+			
+			String key;
+			String[] keys = perfix.split("\\s*,\\s*|\\s*;\\s*|\\s");
+			Object objkey;
+			Iterator<Entry<Object, Object>> iterator = cache.iterator();
+			while(iterator.hasNext()){
+				objkey = iterator.next().getKey();
+				key = objkey.toString();
+				for (String k : keys) {
+					if(key.startsWith(k) || key.toLowerCase().startsWith(k.toLowerCase())){
+						cache.remove(objkey);
+					}
+				}
+			}
+		}
+
+	}
+}

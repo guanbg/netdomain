@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<validate xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="ValidateRegister.xsd">
+	<regist class="com.platform.cubism.service.validate.DefaultValueValidate"
+		desc="默认验证器" />
+</validate>

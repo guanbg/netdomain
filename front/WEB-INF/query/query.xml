@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="query.xsd">
+	<qry id="queryuser" srvid="sys.queryuser" desc="用户信息综合查询">
+		<fld id="userid" text="登录名称"/>
+		<fld id="username" text="用户简称"/>
+		<fld id="departmentid" text="隶属部门" type="number" data="plist.departmentlist"/>
+	</qry>
+	<qry id="b" srvid="sys.queryuser2" desc="测试">
+		<fld id="e1" text="e1" type="number"/>
+		<fld id="e2" text="e2" type="date">"jsondata"</fld>
+	</qry>
+</query>

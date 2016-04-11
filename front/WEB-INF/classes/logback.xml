@@ -1,0 +1,43 @@
+<configuration debug='true'>
+	<timestamp key="bySecond" datePattern="yyyyMMdd HHmmss"/>
+	
+	<appender name="NETDOMAIN" class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<File>NETDOMAIN.log</File>
+		<rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
+			<FileNamePattern>NETDOMAIN%i.log</FileNamePattern>   
+			<MinIndex>1</MinIndex>   
+			<MaxIndex>5</MaxIndex>   
+		</rollingPolicy> 
+		<triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy"> 
+			<MaxFileSize>5MB</MaxFileSize>   
+		</triggeringPolicy> 
+		<layout class="ch.qos.logback.classic.PatternLayout"> 
+			<Pattern>%d{HH:mm:ss.SSS} %level [%thread] %logger{30} [%file:%line] %msg%n</Pattern>   
+		</layout> 
+	</appender>
+    
+    <appender name="DEBUGLOG" class="ch.qos.logback.core.FileAppender">
+        <file>NETDOMAIN_DEBUG.log</file>
+
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %level [%thread] %logger{10} [%file:%line] %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %level [%thread] %logger{10} [%file:%line] %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="com" level="DEBUG"/>
+    <logger name="org" level="DEBUG"/>
+
+    <root>
+        <level value="DEBUG"/>
+
+        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="NETDOMAIN"/>
+    </root>
+
+</configuration>

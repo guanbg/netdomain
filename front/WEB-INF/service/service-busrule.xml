@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="service.xsd" 
+	defaultlogbefore="sys.log.before" defaultlogafter="sys.log.after">
+	<srv id="busrule.query" desc="业务规则">
+		<sql id="busrule" alwayarray="true" errorcode="10012" errormsg="查询业务规则失败"><![CDATA[
+			 select * from fms_businessrule where 
+			 rulename='#{in.rulename}' 
+			 order by rulename asc
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="busrule" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	
+	<srv id="busrule.select" desc="修改查询业务规则">
+		<quit condition="get('in.ruleid')==null or get('in.ruleid').isEmpty()" errorcode="10011" errormsg="查询失败，上送数据不正确,请重试"/>
+		<sql id="busrule_upd" errorcode="10012" errormsg="操作失败，输入数据错误，请确认"><![CDATA[
+			select * from fms_businessrule where ruleid='#{in.ruleid}'
+		]]></sql>
+		
+		<sql id="busrule_clause_upd" alwayarray="true" errorcode="10012" errormsg="操作失败，输入数据错误，请确认"><![CDATA[
+			select * from fms_businessrule_clause where businessruleid='#{in.ruleid}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="busrule_upd" value="busrule_upd" />
+			<arr name="rows" value="busrule_clause_upd" />
+		</out>
+	</srv>
+	
+	<srv id="busrule.select.detail.query" desc="查询业务规则明细">
+		<sql id="busrule_clause_upd" alwayarray="true" errorcode="10012" errormsg="操作失败，输入数据错误，请确认"><![CDATA[
+			select * from fms_businessrule_clause where businessruleid='#{in.ruleid}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="busrule_clause_upd" />
+			<fld name="pageSize">"1000"</fld>
+			<fld name="page">"1"</fld>
+			<fld name="total">"1000"</fld>
+			<fld name="records">"1000"</fld>
+		</out>
+	</srv>
+	
+	<srv id="busrule_clause.upd" desc="AJAX修改规则明细">
+		<quit condition="get('in.clauseid')==null or get('in.clauseid').isEmpty()" errorcode="10011" errormsg="操作失败，输入数据错误，请确认"/>
+		<sql id="busrule_clause" errorcode="10012" errormsg="操作失败，输入数据错误，请确认"><![CDATA[
+			update fms_businessrule_clause 
+			set 
+			clauseexample='#{in.clauseexample}',
+			status='@{in.status}'
+			where clauseid = '#{in.clauseid}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="busrule.upd" desc="修改规则主体">
+		<quit condition="get('in.ruleid')==null or get('in.ruleid').isEmpty()" errorcode="10011" errormsg="操作失败，输入数据错误，请确认"/>
+		<sql id="busrule" errorcode="10012" errormsg="操作失败，输入数据错误，请确认"><![CDATA[
+			update fms_businessrule
+			set 
+			ruleexpress='#{in.ruleexpress}',
+			remark='#{in.remark}',
+			where ruleid = '#{in.ruleid}'
+		]]></sql>
+		<sql id="busrule_clause_upd" alwayarray="true" errorcode="10012" errormsg="操作失败，输入数据错误，请确认"><![CDATA[
+			select * from fms_businessrule_clause where businessruleid='#{in.ruleid}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="busrule_upd" value="busrule_upd" />
+			<arr name="rows" value="busrule_clause_upd" />
+		</out>
+	</srv>
+	
+	<srv id="busrule.updstatus" desc="修改状态">
+		<quit condition="get('in.ruleid')==null or get('in.ruleid').isEmpty()" errorcode="10011" errormsg="操作失败，输入数据错误，请确认"/>
+		<sql id="busrule" errorcode="10012" errormsg="操作失败，输入数据错误，请确认"><![CDATA[
+			update fms_businessrule
+			set 
+			status='@{in.status}'
+			where ruleid = '#{in.ruleid}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="busrule_upd" value="busrule_upd" />
+			<arr name="rows" value="busrule_clause_upd" />
+		</out>
+	</srv>
+	
+	<srv id="busrule.newversion" desc="创建新版本">
+		<sql id="exist" value="select ruleversion from fms_businessrule where ruleversion='#{in.ruleversion}' and rulecode='#{in.rulecode}'" />
+		<quit condition="get('exist')!=null and !get('exist').isEmpty()" errorcode="10011" errormsg="该版本已存在，请重新命名新版本"/>
+		<quit condition="get('in.ruleid')==null or get('in.ruleid').isEmpty()" errorcode="10011" errormsg="操作失败，输入数据错误，请确认"/>
+		<sql id="busrule_new" generatedkeys="ruleid"  errorcode="10012" errormsg="操作失败，输入数据错误，请确认"><![CDATA[
+			insert into fms_businessrule 
+			(ruleversion,rulecode,rulename,ruleexpress,instanse,sort,remark,status)
+ 			select '#{in.ruleversion}',rulecode,rulename,ruleexpress,instanse,sort,remark,status
+			from fms_businessrule where ruleid = '#{in.ruleid}'
+		]]></sql>
+		<sql id="busrule_clause_new" alwayarray="true" errorcode="10012" errormsg="操作失败，输入数据错误，请确认"><![CDATA[
+			insert into fms_businessrule_clause 
+			(businessruleid,clausename,clausecode,clauseexample,isedit,sort,remark,status)
+			select '#{busrule_new.ruleid}',clausename,clausecode,clauseexample,isedit,sort,remark,status
+			from fms_businessrule_clause where businessruleid = '#{in.ruleid}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+</service>

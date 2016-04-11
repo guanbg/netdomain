@@ -1,0 +1,1034 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="service.xsd" 
+	defaultlogbefore="sys.log.before" defaultlogafter="sys.log.after">
+	<srv id="sys.log.before" desc="系统日志记录服务before">
+		<sql id="logbefore" generatedkeys="id"><![CDATA[
+			insert into sys_logs(ServiceName,ServiceDesc,UserID,UserType,LoginName,Agent,IP,Status,ServiceTime,bak1,bak2,bak3) 
+			values('#{in.syshead.servicename}','#{in.servicedesc}','#{in.syshead.userid}','#{in.syshead.usertype}','#{in.syshead.loginname}','#{in.syshead.agent}','#{in.syshead.ip}','U',NOW(),'#{in.bak1}','#{in.bak2}','#{in.bak3}')
+		]]></sql>
+	</srv>
+	<srv id="sys.log.after" desc="系统日志记录服务after">
+		<sql id="logafter"><![CDATA[
+			update sys_logs set 
+				MsgCode='#{rethead.msgarr.code}', 
+				MsgDesc='#{rethead.msgarr.desc}', 
+				Status='#{rethead.status}' 
+			where ID='#{logbefore.id}'
+		]]></sql>
+		<sql id="logafter" condition="get('notInsertLogitems')!='true'"><![CDATA[
+			insert into sys_log_items(LogId,Data,Description,OriginalData) 
+			values('#{logbefore.id}','#{log.data}','#{log.desc}','#{log.origdata}')
+		]]></sql>
+	</srv>
+	
+	<srv id="sys.logs.query" desc="查询系统操作日志信息">
+		<sql id="logitems" alwayarray="true" condition="get('logs.id')!=null and !get('logs.id').isEmpty()"><![CDATA[
+			select * from sys_log_items where logid=${logs.id}
+		]]></sql>
+		<sql id="logs" alwayarray="true" each="logitems"><![CDATA[
+			 select a.*,case when IFNULL(a.usertype,0)=0 then IFNULL((select UserName from sys_users where id=a.UserID),a.LoginName) else IFNULL((select User_Name from fms_contractor_user where user_id=a.UserID),a.LoginName) end username  
+			 from sys_logs a 
+			 where a.ServiceName<>'sys.login.service' and a.ServiceName<>'sys.logon.service' and 
+			 	a.ServiceName like '%#{in.servicename}%' and 
+			 	a.ServiceDesc like '%#{in.servicedesc}%' and 
+				 a.ServiceName like '%#{in.servicename}%' and 
+				 a.MsgCode like '%#{in.msgcode}%' and 
+				 a.MsgDesc like '%#{in.msgdesc}%' and 
+				 a.Status = '#{in.status}' and 
+				 a.Status <> '#{in.status2}' and 
+				 a.IP like '%#{in.ip}%' and 
+				 a.Agent like '%#{in.agent}%' and 
+				 a.LoginName like '%#{in.loginname}%' and 
+				 a.ServiceTime >= STR_TO_DATE('#{in.opttime.start}','%Y-%c-%d %H:%i') and a.ServiceTime <= STR_TO_DATE('#{in.opttime.end}','%Y-%c-%d %H:%i') and 
+				 a.bak1 like '%#{in.bak}%' and 
+				 a.bak2 like '%#{in.bak}%' and 
+				 a.bak3 like '%#{in.bak}%' and 
+				 ((a.UserID is null and a.LoginName like '%#{in.username}%') or (a.UserID in (select id from sys_users where UserName like '%#{in.username}%' union all select user_id from fms_contractor_user where User_Name like '%#{in.username}%'))) and 
+				 a.ID in (select logid from sys_log_items where data like '%#{in.logitems}%' or description like '%#{in.logitems}%' or originaldata like '%#{in.logitems}%')
+			 order by a.ServiceTime desc,a.ID desc
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="logs" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	
+	<srv id="sys.registerLog.query" desc="查询系统登录日志信息">
+		<sql id="logitems" alwayarray="true" condition="get('logs.id')!=null and !get('logs.id').isEmpty()"><![CDATA[
+			select * from sys_log_items where logid=${logs.id}
+		]]></sql>
+		<sql id="logs" alwayarray="true" each="logitems"><![CDATA[
+			 select a.*,case when IFNULL(a.usertype,0)=0 then IFNULL((select UserName from sys_users where id=a.UserID),a.LoginName) else IFNULL((select User_Name from fms_contractor_user where user_id=a.UserID),a.LoginName) end username 
+			 from sys_logs a 
+			 where a.ServiceName in ('sys.login.service','sys.logon.service') and
+			     a.ServiceName like '%#{in.servicename}%' and 
+			     a.ServiceDesc like '%#{in.servicedesc}%' and 
+				 a.MsgCode like '%#{in.msgcode}%' and 
+				 a.MsgDesc like '%#{in.msgdesc}%' and 
+				 a.Status = '#{in.status}' and 
+				 a.Status <> '#{in.status2}' and 
+				 a.IP like '%#{in.ip}%' and 
+				 a.Agent like '%#{in.agent}%' and 
+				 a.LoginName like '%#{in.loginname}%' and 
+				 a.ServiceTime >= STR_TO_DATE('#{in.opttime.start}','%Y-%c-%d %H:%i') and a.ServiceTime <= STR_TO_DATE('#{in.opttime.end}','%Y-%c-%d %H:%i') and 
+				 a.bak1 like '%#{in.bak}%' and 
+				 a.bak2 like '%#{in.bak}%' and 
+				 a.bak3 like '%#{in.bak}%' and 
+				 ((a.UserID is null and a.LoginName like '%#{in.username}%') or (a.UserID in (select id from sys_users where UserName like '%#{in.username}%' union all select user_id from fms_contractor_user where User_Name like '%#{in.username}%'))) and 
+				 a.ID in (select logid from sys_log_items where data like '%#{in.logitems}%' or description like '%#{in.logitems}%' or originaldata like '%#{in.logitems}%')
+			 order by a.ServiceTime desc,a.ID desc
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="logs" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	
+	<srv id="sys.desktoplogs.query" desc="查询桌面系统登录日志信息">
+		<sql id="auth"><![CDATA[
+			select count(1) cnt
+			from sys_Menus a left join sys_Group_Menus b on a.ID=b.MenuID  
+			where a.url='sys/registerLog.jsp' and b.GroupID in (
+				select GroupID 
+			 	from sys_User_Groups 
+			 	where UserID = '#{in.syshead.userid}'
+			)
+		]]></sql>
+		<sql id="logs" alwayarray="true" condition="get('auth.cnt')!=null and !get('auth.cnt').isEmpty() and get('auth.cnt').getIntValue() &gt; 0"><![CDATA[
+			 select a.*,case when IFNULL(a.usertype,0)=0 then IFNULL((select UserName from sys_users where id=a.UserID),a.LoginName) else IFNULL((select User_Name from fms_contractor_user where user_id=a.UserID),a.LoginName) end username,
+			 CAST((@xh:=@xh+1) AS CHAR) as xuhao from (select @xh:=0) xh,
+	         sys_logs a 
+			 where a.ServiceName in ('sys.login.service','sys.logon.service') 
+			 order by a.ServiceTime desc,a.ID desc
+			 LIMIT 0,5
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="logs" />
+		</out>
+	</srv>
+	<!-- 系统文件处理**************************************************************************************************************** -->
+
+	<srv id="sys.files.bypk.query" desc="查询单个文件信息">
+		<sql id="file" alwayarray="false" condition="get('in.id')!=null and !get('in.id').isEmpty()"><![CDATA[
+			SELECT * FROM sys_files WHERE id='#{in.id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="file" value="file" />
+		</out>
+	</srv>
+	<srv id="sys.files.query" desc="查询多个指定的文件信息">
+		<sql id="files" alwayarray="true" condition="get('in.id')!=null and !get('in.id').isEmpty()"><![CDATA[
+			SELECT * FROM sys_files WHERE id IN (#{in.id})
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="files" value="files" />
+		</out>
+	</srv>
+	<srv id="sys.files.delete" desc="删除指定的文件">
+		<quit condition="get('in.id')==null or get('in.id').isEmpty()" errorcode="10011" errormsg="上送数据不正确,请重试"/>
+		<sql id="files" alwayarray="true" value="SELECT * FROM sys_files WHERE id IN (#{in.id})"/>
+		<sql id="del" value="DELETE FROM sys_files WHERE id IN (#{in.id})" errorcode="10012" errormsg="删除文件时错误,请重试"/>
+		<ref id="disk" clazz="com.platform.cubism.util.FileUtils.delFile(#{files.files})"/>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="disk" value="disk" />
+		</out>
+		<log name="log">
+			<fld name="servicedesc">"删除文件"</fld>
+			<row>
+				<fld name="desc">"文件名称"</fld>
+				<fld name="data">files.filename</fld>
+			</row>
+			<row>
+				<fld name="desc">"文件路径 "</fld>
+				<fld name="data">files.filepath</fld>
+			</row>
+			<row>
+				<fld name="desc">"文件类型 "</fld>
+				<fld name="data">files.filetype</fld>
+			</row>
+			<row>
+				<fld name="desc">"文件标识 "</fld>
+				<fld name="data">files.fileidentify</fld>
+			</row>
+			<row>
+				<fld name="desc">"文件大小 "</fld>
+				<fld name="data">files.filesize</fld>
+			</row>
+			<row>
+				<fld name="desc">"删除日期"</fld>
+				<fld name="data">in.syshead.datetime</fld>
+			</row>
+		</log>
+	</srv>
+	<srv id="sys.file.upload" desc="文件上传">
+		<sql id="fileids" generatedkeys="id"  errorcode="10011" errormsg="文件上传失败，写入文件信息时错误"><![CDATA[
+			insert into sys_files(FileIdentify,FileName,FileType,Filepath,FileSize,Memo,UserID,UploadTime) 
+			values('#{in.files.fileidentify}','?{in.files.filename}','#{in.files.filetype}','?{in.files.filepath}','#{in.files.filesize}','#{in.files.memo}',,'#{in.syshead.userid}',NOW())
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="fileids" value="fileids" />
+		</out>
+		<log name="log">
+			<fld name="servicedesc">"文件上传"</fld>
+			<row>
+				<fld name="desc">"文件标识 "</fld>
+				<fld name="data">in.files.fileidentify</fld>
+			</row>
+			<row>
+				<fld name="desc">"文件名称"</fld>
+				<fld name="data">in.files.filename</fld>
+			</row>
+			<row>
+				<fld name="desc">"文件类型 "</fld>
+				<fld name="data">in.files.filetype</fld>
+			</row>
+			<row>
+				<fld name="desc">"文件路径 "</fld>
+				<fld name="data">in.files.filepath</fld>
+			</row>
+			<row>
+				<fld name="desc">"文件大小 "</fld>
+				<fld name="data">in.files.filesize</fld>
+			</row>
+			<row>
+				<fld name="desc">"上传日期"</fld>
+				<fld name="data">in.syshead.datetime</fld>
+			</row>
+		</log>
+	</srv>
+	
+	<!-- 用户管理**************************************************************************************************************** -->
+
+	<srv id="sys.login" desc="用户登录验证">
+		<in>
+			<stc name="syshead">
+				<fld name="servicename">"sys.login.service"</fld>
+				<fld name="loginname">in.username</fld>
+				<fld name="agent">in.agent</fld>
+				<fld name="ip">in.ip</fld>
+			</stc>
+			<fld name="loginname">in.username</fld>
+			<fld name="password">in.userpswd</fld>
+		</in>
+		<quit condition="get('in.loginname')==null or get('in.loginname').isEmpty() or get('in.password')==null or get('in.password').isEmpty()" errorcode="10011" errormsg="用户登录失败，登录信息不正确,请重试"/>
+		<sql id="user" alwayarray="false" value="select *,'0' usertype from sys_users where IFNULL(isdel,0)=0 and status='A' and loginname='#{in.loginname}' and password='#{in.password}'" />
+		<sql id="upd" value="update sys_users set lastlogindate=now() where IFNULL(isdel,0)=0 and status='A' and loginname='#{in.loginname}' and password='#{in.password}'" />
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="user" value="user" />
+		</out>
+		<log name="log">
+			<fld name="servicedesc">"系统登录"</fld>
+			<fld name="loginname">loginname</fld>
+			<fld name="notInsertLogitems">"true"</fld>
+		</log>
+	</srv>
+	<srv id="sys.logon" desc="参建单位登录验证">
+		<in>
+			<stc name="syshead">
+				<fld name="servicename">"sys.logon.service"</fld>
+				<fld name="loginname">in.username</fld>
+				<fld name="agent">in.agent</fld>
+				<fld name="ip">in.ip</fld>
+			</stc>
+			<fld name="loginname">in.username</fld>
+			<fld name="password">in.userpswd</fld>
+		</in>
+		<quit condition="get('in.loginname')==null or get('in.loginname').isEmpty() or get('in.password')==null or get('in.password').isEmpty()" errorcode="10011" errormsg="登录失败，登录信息不正确,请重试"/>
+	
+	    <sql id="isdel" ><![CDATA[
+			select * from fms_contractor_user where  login_password='#{in.password}' and login_name='#{in.loginname}' 
+		]]></sql>
+		<quit condition="get('isdel')==null or get('isdel').isEmpty()" errorcode="10011" errormsg="登陆失败，账号或密码错误"/>
+		
+		<sql id="exist" ><![CDATA[
+			select * from fms_contractor_user where IFNULL(user_status,0)=1 and login_password='#{in.password}' and login_name='#{in.loginname}' 
+		]]></sql>
+		<quit condition="get('exist')==null or get('exist').isEmpty()" errorcode="10011" errormsg="登陆失败，用户未激活"/>
+		
+		<sql id="status" ><![CDATA[
+			select * from fms_contractor_user where IFNULL(isdel,0)=0 and login_password='#{in.password}' and login_name='#{in.loginname}' 
+		]]></sql>
+		<quit condition="get('status')==null or get('status').isEmpty()" errorcode="10011" errormsg="登陆失败，用户被冻结"/>
+		
+		<sql id="contractor" alwayarray="false" condition="get('user.contractor_id')!=null and !get('user.contractor_id').isEmpty()" value="select * from fms_contractor_basicinfo where contractor_id='#{user.contractor_id}'"/>
+		<sql id="documentor" alwayarray="false" condition="get('user.documentor_id')!=null and !get('user.documentor_id').isEmpty()" value="select * from fms_contractor_documentor where documentor_id='#{user.documentor_id}'"/>
+		<sql id="user" alwayarray="false" each="contractor,documentor" value="select *, user_id id, login_name loginname, user_name username,'1' usertype from fms_contractor_user where IFNULL(isdel,0)=0 and IFNULL(user_status,0)=1 and login_password='#{in.password}' and (login_name='#{in.loginname}' or login_email='#{in.loginname}' or login_mobile='#{in.loginname}')" />
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="user" value="user" />
+		</out>
+		<log name="log">
+			<fld name="servicedesc">"参建单位、资料员登录"</fld>
+			<fld name="loginname">loginname</fld>
+			<fld name="notInsertLogitems">"true"</fld>
+		</log>
+	</srv>
+	<srv id="sys.logon.refresh" desc="参建单位登录成功后刷新页面">
+		<quit condition="get('in.user_id')==null or get('in.user_id').isEmpty()" errorcode="10011" errormsg="上送数据不正确,请重试"/>
+		<sql id="contractor" alwayarray="false" condition="get('user.contractor_id')!=null and !get('user.contractor_id').isEmpty()" value="select * from fms_contractor_basicinfo where contractor_id='#{user.contractor_id}'"/>
+		<sql id="documentor" alwayarray="false" condition="get('user.documentor_id')!=null and !get('user.documentor_id').isEmpty()" value="select * from fms_contractor_documentor where documentor_id='#{user.documentor_id}'"/>
+		<sql id="user" alwayarray="false" each="contractor,documentor" value="select *, user_id id, login_name loginname, user_name username,'1' usertype  from fms_contractor_user where IFNULL(isdel,0)=0 and IFNULL(user_status,0)=1 and user_id='#{in.user_id}'" />
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="user" value="user" />
+		</out>
+	</srv>
+	
+	<srv id="sys.login.user.get" desc="查询用户信息">
+		<sql id="user" alwayarray="false" value="select * from sys_users where IFNULL(isdel,0)=0 and id='#{in.id}'" />
+	</srv>
+	<srv id="sys.logon.user.get" desc="查询参建单位用户信息">
+		<sql id="user" alwayarray="false" value="select *, contractor_id id, email loginname, company_name username from fms_contractor_basicinfo where contractor_id='#{in.contractor_id}'" />
+	</srv>
+	
+	<srv id="sys.user.query" desc="查询用户信息列表">
+		<sql id="user" alwayarray="true"><![CDATA[
+			 select *
+			 from sys_users
+			 where IFNULL(isdel,0)=0 and loginname like '%#{in.loginname}%' and 
+				 staffid like '%#{in.staffid}%' and 
+				 username like '%#{in.username}%' and 
+				 status = '#{in.status}' and 
+				 departid = '#{in.departid}' and 
+				 memo like '%#{in.memo}%' and 
+				 departid in (SELECT id FROM sys_departments WHERE departmentname like '%#{in.departmentname}%') 
+			 order by disporder desc, id desc
+		]]></sql>
+		<out>
+			<stc name="pagehead" value="pagehead" />
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="user" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	
+	<srv id="sys.user.getuser" desc="查找指定id或loginname的用户">
+		<quit condition="(get('in.id')==null or get('in.id').isEmpty()) and (get('in.loginname')==null or get('in.loginname').isEmpty())" errorcode="10011" errormsg="查找指定用户失败，上送数据不正确,请重试"/>
+		<sql id="user" value="select *, id as userid from sys_users where IFNULL(isdel,0)=0 and (id='#{in.id}' or loginname='#{in.loginname}')" />
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="user" value="user" />
+		</out>
+	</srv>
+	
+	<srv id="sys.user.add" desc="新增用户">
+		<sql id="exist" value="select * from sys_users where IFNULL(isdel,0)=0 and loginname='#{in.loginname}'" />
+		<quit condition="get('exist')!=null and !get('exist').isEmpty()" errorcode="10011" errormsg="登录名称已存在，请重新输入"/>
+		<sql id="add" errorcode="10012" errormsg="新增用户失败，输入数据错误，请确认"><![CDATA[
+			 insert into sys_users(loginname,password,staffid,username,disporder,departid,status,memo) 
+			 values('#{in.loginname}','#{in.password}','#{in.staffid}','#{in.username}','#{in.disporder}','#{in.departid}','A','#{in.memo}')
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="sys.user.update" desc="修改用户信息">
+		<quit condition="get('in.userid')==null or get('in.userid').isEmpty()" errorcode="10011" errormsg="修改失败，上送数据不正确,请重试"/>
+		<sql id="exist" value="select * from sys_users where IFNULL(isdel,0)=0 and id&lt;&gt;#{in.userid} and loginname='#{in.loginname}'" />
+		<quit condition="get('exist')!=null and !get('exist').isEmpty()" errorcode="10012" errormsg="登录名称已存在，请重新输入"/>
+		<sql id="upd" errorcode="10013" errormsg="修改用户失败，输入数据错误，请确认"><![CDATA[
+			 update sys_users set 
+				 loginname='#{in.loginname}',
+				 staffid='#{in.staffid}',
+				 username='#{in.username}',
+				 disporder='#{in.disporder}',
+				 departid='#{in.departid}',
+				 status='#{in.status}',
+				 memo='#{in.memo}' 
+			 where id='#{in.userid}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="sys.user.del" desc="删除用户 ">
+		<quit condition="get('in.id')==null or get('in.id').isEmpty()" errorcode="10011" errormsg="删除失败，上送数据不正确,请重试"/>
+		<sql id="cnt" value="select count(1) cnt from sys_users where IFNULL(isdel,0)=0 and status='A'" />
+		<quit condition="get('cnt')==null or get('cnt').isEmpty() or get('cnt.cnt').getIntValue() &lt;= 1" errorcode="10012" errormsg="不能删除此用户，否则系统无法登录"/>
+		
+		<sql id="success1" value="delete from sys_toolbar where userid='#{in.id}'" />
+		<sql id="success2" value="delete from sys_user_params where userid='#{in.id}'" />
+		<sql id="success3" value="delete from sys_user_groups where userid='#{in.id}'" />
+		<sql id="success4" value="update sys_users set isdel=1 where id='#{in.id}'" />
+		<!-- sql id="success4" value="delete from sys_users where id='#{in.id}'" / -->
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="sys.user.password.reset" desc="用户密码重置">
+		<quit condition="get('in.id')==null or get('in.id').isEmpty()" errorcode="10011" errormsg="密码重置失败，上送数据不正确,请重试"/>
+		<sql id="success" value="update sys_users set password='#{in.pswd}' where id='#{in.id}'" />
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="sys.user.password.update" desc="修改用户密码">
+		<quit condition="get('in.userid')==null or get('in.userid').isEmpty()" errorcode="10011" errormsg="修改失败，上送数据不正确,请重试"/>
+		<sql id="exists" value="select count(id) cnt from sys_users where IFNULL(isdel,0)=0 and id='#{in.userid}' and password='#{in.oldpswd}'"  errorcode="10012" errormsg="修改失败，上送数据不正确,请重试"/>
+		<quit condition="get('exists.cnt')!=null and get('exists.cnt').getIntValue() &lt;= 0" errorcode="10013" errormsg="用户密码验证错误，请重新输入"/>
+		<sql id="success" value="update sys_users set password='#{in.newpswd}' where id='#{in.userid}'" errorcode="10014" errormsg="修改密码失败，请重试"/>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<!-- 部门管理**************************************************************************************************************** -->
+	
+	<srv id="sys.department.query" desc="查询所有部门信息">
+		<sql id="depart" alwayarray="true" value="select *, parentid pid, parentid parent from sys_departments" errorcode="10011" errormsg="查询部门错误，请刷新后重试"/>
+		<ref id="xtree" clazz="com.platform.cubism.tools.CreateTrees.adjacency(#{depart})"/>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="xtree.tree" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	
+	<srv id="sys.department.save" desc="新增和修改部门信息">
+		<quit condition="(get('in.add')==null or get('in.add').isEmpty()) and (get('in.edit')==null or get('in.edit').isEmpty())" errorcode="10011" errormsg="上送数据不正确,请重试"/>
+		
+		<sql id="insert" condition="get('in.add')!=null and !get('in.add').isEmpty()" errorcode="10012" errormsg="新增部门信息失败，输入数据错误，请确认"><![CDATA[
+			insert into sys_departments(parentid, departmentname, departmentdesc, disporder,createdate) 
+			values ('#{in.add.parentid}','#{in.add.departmentname}','#{in.add.departmentdesc}','#{in.add.disporder}',now())
+		]]></sql>
+		
+		<sql id="update" condition="get('in.edit')!=null and !get('in.edit').isEmpty()" errorcode="10013" errormsg="修改部门信息失败，输入数据错误，请确认"><![CDATA[
+			update sys_departments set 
+				departmentname='#{in.edit.departmentname}', 
+				departmentdesc='#{in.edit.departmentdesc}',
+				disporder='#{in.edit.disporder}'
+			where id='#{in.edit.id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="sys.department.delete" desc="删除部门">
+		<quit condition="get('in.id')==null or get('in.id').isEmpty()" errorcode="10011" errormsg="删除部门失败，上送数据不正确,请重试"/>
+		<sql id="success" alwayarray="false" value="delete from sys_departments where id='#{in.id}'" errorcode="10012" errormsg="删除失败，上送数据不正确,请重试"/>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<!-- 岗位管理**************************************************************************************************************** -->
+	
+	<srv id="sys.position.query" desc="查询所有岗位信息">
+		<sql id="posi" alwayarray="true" value="select *, parentid pid, parentid parent from sys_positions" errorcode="10011" errormsg="查询岗位错误，请刷新后重试"/>
+		<ref id="xtree" clazz="com.platform.cubism.tools.CreateTrees.adjacency(#{posi})"/>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="xtree.tree" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	
+	<srv id="sys.position.save" desc="新增和修改岗位信息">
+		<quit condition="(get('in.add')==null or get('in.add').isEmpty()) and (get('in.edit')==null or get('in.edit').isEmpty())" errorcode="10011" errormsg="上送数据不正确,请重试"/>
+		
+		<sql id="insert" condition="get('in.add')!=null and !get('in.add').isEmpty()" errorcode="10012" errormsg="新增岗位信息失败，输入数据错误，请确认"><![CDATA[
+			insert into sys_positions(parentid, positionidentify, positionname, disporder,positiondesc) 
+			values ('#{in.add.parentid}','#{in.add.positionidentify}','#{in.add.positionname}','#{in.add.disporder}','#{in.add.positiondesc}')
+		]]></sql>
+		
+		<sql id="update" condition="get('in.edit')!=null and !get('in.edit').isEmpty()" errorcode="10013" errormsg="修改岗位信息失败，输入数据错误，请确认"><![CDATA[
+			update sys_positions set 
+				positionidentify='#{in.edit.positionidentify}', 
+				positionname='#{in.edit.positionname}',
+				positiondesc='#{in.edit.positiondesc}',
+				disporder='#{in.edit.disporder}'
+			where id='#{in.edit.id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="sys.position.delete" desc="删除岗位">
+		<quit condition="get('in.id')==null or get('in.id').isEmpty()" errorcode="10011" errormsg="删除岗位失败，上送数据不正确,请重试"/>
+		<sql id="success" alwayarray="false" value="delete from sys_positions where id='#{in.id}'" errorcode="10012" errormsg="删除失败，上送数据不正确,请重试"/>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<!-- 数据字典**************************************************************************************************************** -->
+
+	<srv id="sys.datadictionary.query" desc="查询所有数据字典信息">
+		<sql id="dict" alwayarray="true" value="select *, parentid pid, parentid parent from sys_data_dictionary" errorcode="10011" errormsg="查询数据字典错误，请刷新后重试"/>
+		<ref id="xtree" clazz="com.platform.cubism.tools.CreateTrees.adjacency(#{dict})"/>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="xtree.tree" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>	
+	
+	<srv id="sys.datadictionary.save" desc="新增和修改数据字典">
+		<quit condition="(get('in.add')==null or get('in.add').isEmpty()) and (get('in.edit')==null or get('in.edit').isEmpty())" errorcode="10011" errormsg="上送数据不正确,请重试"/>
+		
+		<sql id="insert" condition="get('in.add')!=null and !get('in.add').isEmpty()" errorcode="10012" errormsg="新增数据字典失败，输入数据错误，请确认"><![CDATA[
+			insert into sys_data_dictionary(parentid, dataname, datavalue, disporder,disptype, description,extenddata) 
+			values ('#{in.add.parentid}','#{in.add.dataname}','#{in.add.datavalue}','#{in.add.disporder}','#{in.add.disptype}','#{in.add.description}','#{in.add.extenddata}')
+		]]></sql>
+		
+		<sql id="update" condition="get('in.edit')!=null and !get('in.edit').isEmpty()" errorcode="10013" errormsg="修改数据字典失败，输入数据错误，请确认"><![CDATA[
+			update sys_data_dictionary set dataname='#{in.edit.dataname}', datavalue='#{in.edit.datavalue}',disporder='#{in.edit.disporder}',disptype='#{in.edit.disptype}',description='#{in.edit.description}',extenddata='#{in.edit.extenddata}' where id='#{in.edit.id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="sys.datadictionary.delete" desc="删除数据字典">
+		<quit condition="get('in.id')==null or get('in.id').isEmpty()" errorcode="10011" errormsg="删除数据字典失败，上送数据不正确,请重试"/>
+		<sql id="success" alwayarray="false" value="delete from sys_data_dictionary where id='#{in.id}'" errorcode="10012" errormsg="删除失败，上送数据不正确,请重试"/>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<!-- 系统角色**************************************************************************************************************** -->
+
+	<srv id="sys.group.query" desc="查询所有角色">
+		<sql id="groups" alwayarray="true"><![CDATA[
+			SELECT * FROM sys_groups WHERE id='#{in.id}' and groupname like '%#{in.groupname}%' and memo like '%#{in.memo}%'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="groups" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	
+	<srv id="sys.group.save" desc="角色新增和修改">
+		<quit condition="(get('in.add')==null or get('in.add').isEmpty()) and (get('in.edit')==null or get('in.edit').isEmpty())" errorcode="10011" errormsg="上送数据不正确,请重试"/>
+		
+		<sql id="insert" condition="get('in.add')!=null and !get('in.add').isEmpty()" errorcode="10012" errormsg="新增角色失败，输入数据错误，请确认"><![CDATA[
+			insert into sys_groups(groupname, memo) values ('#{in.add.groupname}','#{in.add.memo}')
+		]]></sql>
+		
+		<sql id="update" condition="get('in.edit')!=null and !get('in.edit').isEmpty()" errorcode="10013" errormsg="修改角色失败，输入数据错误，请确认"><![CDATA[
+			update sys_groups set groupname='#{in.edit.groupname}',memo='#{in.edit.memo}' where id='#{in.edit.id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="sys.group.delete" desc="删除角色">
+		<quit condition="get('in.id')==null or get('in.id').isEmpty()" errorcode="10011" errormsg="删除角色失败，上送数据不正确,请重试"/>
+		<sql id="sys_group_menu_rights" value="delete from sys_group_menu_rights where groupmenuid in (select id from sys_group_menus where groupid='#{in.id}')"  errorcode="10012" errormsg="删除失败，上送数据不正确,请重试"/>
+		<sql id="sys_group_menus" value="delete from sys_group_menus where groupid='#{in.id}'"  errorcode="10013" errormsg="删除失败，上送数据不正确,请重试"/>
+		<sql id="sys_groups" value="delete from sys_groups where id='#{in.id}'"  errorcode="10015" errormsg="删除失败，上送数据不正确,请重试"/>
+		<sql id="sys_user_groups" value="delete from sys_user_groups where groupid='#{in.id}' "  errorcode="10014" errormsg="更新失败，上送数据不正确,请重试"/>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="sys.group.menu.unselect.query" desc="查询角色可用权限">
+		<quit condition="get('in.groupid')==null or get('in.groupid').isEmpty()" errorcode="10011" errormsg="上送数据不正确,请重试"/>
+
+		<sql id="menus" errorcode="10012" errormsg="查询角色可用权限失败，输入数据错误，请确认"><![CDATA[
+			SELECT * FROM (
+				SELECT c.id,c.parentid pid,c.menuname text,case when (select count(1) from sys_Menus where parentid=c.id)<=0 then 'item' else 'folder' end type
+				FROM sys_Menus c 
+				WHERE c.id IN (
+					SELECT * FROM (
+						SELECT a.id 
+						FROM sys_Menus a 
+						WHERE (SELECT COUNT(1) FROM sys_Menus WHERE parentid=a.id)<= 0 AND a.id NOT IN (
+							SELECT b.id 
+							FROM sys_Menus b LEFT JOIN sys_Group_Menus c ON b.ID=c.MenuID 
+							WHERE c.GroupID='#{in.groupid}'
+						) 
+					)a1
+					
+					UNION ALL
+					
+					SELECT * FROM (
+						SELECT a.parentid 
+						FROM sys_Menus a 
+						WHERE (SELECT COUNT(1) FROM sys_Menus WHERE parentid=a.id)<= 0 AND a.id NOT IN (
+							SELECT b.id 
+							FROM sys_Menus b LEFT JOIN sys_Group_Menus c ON b.ID=c.MenuID 
+							WHERE c.GroupID='#{in.groupid}'
+						) 
+					)a2
+					
+					UNION ALL
+					
+					SELECT * FROM (
+						SELECT menuid
+						FROM sys_menu_rights 
+						WHERE id NOT IN( 
+							SELECT menurightid 
+							FROM sys_group_menu_rights 
+							WHERE groupmenuid IN (SELECT id FROM sys_group_menus WHERE groupid='#{in.groupid}')
+						)
+					)a3
+					
+					UNION ALL
+					
+					SELECT * FROM (
+						SELECT a.parentid 
+						FROM sys_Menus a
+						WHERE a.id IN (
+							SELECT menuid
+							FROM sys_menu_rights 
+							WHERE id NOT IN( 
+								SELECT menurightid 
+								FROM sys_group_menu_rights 
+								WHERE groupmenuid IN (SELECT id FROM sys_group_menus WHERE groupid='1')
+							)
+						)
+					)a4
+				)
+			)c1
+			
+			UNION ALL
+			
+			SELECT * FROM (
+				SELECT -1*id, menuid, rightsname,'action' type
+				FROM sys_menu_rights 
+				WHERE id NOT IN( 
+					SELECT menurightid 
+					FROM sys_group_menu_rights 
+					WHERE groupmenuid IN (SELECT id FROM sys_group_menus WHERE groupid='#{in.groupid}')
+				)
+			)c2
+		]]></sql>
+		<ref id="menustree" clazz="com.platform.cubism.tools.CreateTrees.toTree(#{menus})"/>
+		
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="tree" value="menustree.tree" />
+		</out>
+	</srv>
+	
+	<srv id="sys.group.menu.selected.query" desc="查询角色已有权限">
+		<quit condition="get('in.groupid')==null or get('in.groupid').isEmpty()" errorcode="10011" errormsg="上送数据不正确,请重试"/>
+		
+		<sql id="menus" errorcode="10012" errormsg="查询角色已有权限失败，输入数据错误，请确认"><![CDATA[
+			SELECT * FROM (
+				SELECT c.id,c.parentid pid,c.menuname text,case when (select count(1) from sys_Menus where parentid=c.id)<=0 then 'item' else 'folder' end type
+				FROM sys_Menus c 
+				WHERE c.id IN (
+					SELECT * FROM (
+						SELECT a.id 
+						FROM sys_Menus a LEFT JOIN sys_Group_Menus b ON a.ID=b.MenuID 
+						WHERE b.GroupID='#{in.groupid}'
+					)a1
+					
+					UNION ALL
+					
+					SELECT * FROM (
+						SELECT a.parentid
+						FROM sys_Menus a LEFT JOIN sys_Group_Menus b ON a.ID=b.MenuID 
+						WHERE b.GroupID='#{in.groupid}'
+					)a2
+				)
+			)c1
+			
+			UNION ALL
+			
+			SELECT * FROM (
+				SELECT -1*id, menuid, rightsname,'action' type
+				FROM sys_menu_rights 
+				WHERE id IN( 
+					SELECT menurightid 
+					FROM sys_group_menu_rights 
+					WHERE groupmenuid IN (SELECT id FROM sys_group_menus WHERE groupid='#{in.groupid}')
+				)
+			)c2
+		]]></sql>
+		
+		<ref id="menustree" clazz="com.platform.cubism.tools.CreateTrees.toTree(#{menus})"/>
+		
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="tree" value="menustree.tree" />
+		</out>
+	</srv>
+	
+	<srv id="sys.group.menu.add" desc="增加角色菜单权限">
+		<quit condition="get('in.groupid')==null or get('in.groupid').isEmpty() or get('in.menuid')==null or get('in.menuid').isEmpty()" errorcode="10011" errormsg="上送数据不正确,请重试"/>
+		<sql id="menus" generatedkeys="id" errorcode="10012" errormsg="新增角色菜单权限失败，输入数据错误，请确认"><![CDATA[
+			INSERT INTO sys_group_menus(menuid, groupid) 
+			SELECT A.id,'#{in.groupid}' 
+			FROM sys_menus A 
+			WHERE (A.id='#{in.menuid}' OR A.parentid='#{in.menuid}') AND 
+				(SELECT count(1) FROM sys_Menus WHERE parentid=A.id)<=0 AND 
+				NOT EXISTS(SELECT menuid FROM sys_group_menus WHERE groupid='#{in.groupid}' AND (menuid=A.id OR menuid=a.parentid))
+		]]></sql>
+		<sql id="rights" errorcode="10013" errormsg="角色功能权限增加失败，输入数据错误，请确认"><![CDATA[
+			insert into sys_group_menu_rights(groupmenuid, menurightid) 
+			SELECT A.id groupmenuid, B.id menurightid 
+			FROM sys_group_menus A JOIN sys_menu_rights B ON A.menuid=B.menuid
+			WHERE A.groupid='#{in.groupid}' AND A.menuid IN (
+				SELECT C.id 
+				FROM sys_menus C
+				WHERE (C.id='#{in.menuid}' OR C.parentid='#{in.menuid}') AND 
+				(SELECT count(1) FROM sys_Menus WHERE parentid=C.id)<=0
+			)
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="sys.group.menuright.add" desc="增加角色菜单功能权限">
+		<quit condition="get('in.groupid')==null or get('in.groupid').isEmpty() or get('in.menurightid')==null or get('in.menurightid').isEmpty()" errorcode="10011" errormsg="上送数据不正确,请重试"/>
+		<sql id="rights" errorcode="10013" errormsg="角色功能权限增加失败，输入数据错误，请确认"><![CDATA[
+			insert into sys_group_menu_rights(groupmenuid, menurightid) 
+			SELECT A.id groupmenuid, B.id menurightid 
+			FROM sys_group_menus A JOIN sys_menu_rights B ON A.menuid=B.menuid
+			WHERE A.groupid='#{in.groupid}' AND B.id='#{in.menurightid}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="sys.group.menu.delete" desc="删除角色菜单权限">
+		<quit condition="get('in.groupid')==null or get('in.groupid').isEmpty() or get('in.menuid')==null or get('in.menuid').isEmpty()" errorcode="10011" errormsg="上送数据不正确,请重试"/>
+		
+		<sql id="rights" errorcode="10012" errormsg="角色权限删除失败，输入数据错误，请确认"><![CDATA[
+			delete from sys_group_menu_rights where groupmenuid in (
+				select id 
+				from sys_group_menus 
+				where groupid=#{in.groupid} and menuid in (
+					select id 
+					from sys_menus 
+					where id=#{in.menuid} or parentid=#{in.menuid}
+				)
+			)
+		]]></sql>
+		<sql id="menus"  errorcode="10013" errormsg="角色权限删除失败，输入数据错误，请确认"><![CDATA[
+			delete from sys_group_menus 
+			where groupid=#{in.groupid} and menuid in (
+				select id 
+				from sys_menus 
+				where id=#{in.menuid} or parentid=#{in.menuid}
+			)
+		]]></sql>
+		
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="sys.group.menuright.delete" desc="删除角色菜单功能权限">
+		<quit condition="get('in.groupid')==null or get('in.groupid').isEmpty() or get('in.menurightid')==null or get('in.menurightid').isEmpty()" errorcode="10011" errormsg="上送数据不正确,请重试"/>
+		
+		<sql id="rights" errorcode="10012" errormsg="角色权限删除失败，输入数据错误，请确认"><![CDATA[
+			delete from sys_group_menu_rights 
+			where menurightid=#{in.menurightid} and groupmenuid in (
+				select id 
+				from sys_group_menus 
+				where groupid=#{in.groupid}
+			)
+		]]></sql>
+		<sql id="menus"  errorcode="10013" errormsg="角色权限删除失败，输入数据错误，请确认"><![CDATA[
+			delete from sys_group_menus 
+			where groupid=#{in.groupid} and menuid in (
+				select menuid 
+				from sys_menu_rights 
+				where id=#{in.menurightid}
+			)
+		]]></sql>
+		
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+
+	<srv id="sys.user.group.query" desc="查询用户角色">
+		<sql id="groups" alwayarray="true"><![CDATA[
+			SELECT DISTINCT groupid FROM sys_user_groups WHERE userid in (#{in.userid})
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="groups" value="groups" />
+		</out>
+	</srv>
+	
+	<srv id="sys.user.group.save" desc="保存用户角色">
+		<quit condition="get('in.userid')==null or get('in.userid').isEmpty()" errorcode="10011" errormsg="上送数据不正确,请重试"/>
+		
+		<sql id="delete" condition="get('in.userid')!=null and !get('in.userid').isEmpty()" errorcode="10012" errormsg="修改用户角色失败，输入数据错误，请确认"><![CDATA[
+			delete from sys_user_groups where userid='#{in.userid}'
+		]]></sql>
+		
+		<sql id="insert" condition="get('in.groupid')!=null and !get('in.groupid').isEmpty()" errorcode="10013" errormsg="写入用户角色失败，输入数据错误，请确认"><![CDATA[
+			insert into sys_user_groups(userid, groupid) values ('#{in.userid}','#{in.groupid}')
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<!-- 系统菜单**************************************************************************************************************** -->
+	<srv id="sys.menu.auth.query" desc="查询菜单权限信息">
+		<sql id="auth"><![CDATA[
+			select count(1) cnt
+			from sys_Menus a left join sys_Group_Menus b on a.ID=b.MenuID  
+			where a.url='#{in.url}' and b.GroupID in (
+				select GroupID 
+			 	from sys_User_Groups 
+			 	where UserID = '#{in.syshead.userid}'
+			)
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<fld name="auth" value="auth.cnt" />
+		</out>
+	</srv>
+	<srv id="sys.main.nav.query" desc="查询主导航">
+		<sql id="subnav" alwayarray="true" condition="get('main.id')!=null and !get('main.id').isEmpty()"><![CDATA[
+			select a.* 
+			from sys_Menus a left join sys_Group_Menus b on a.ID=b.MenuID 
+			where a.ParentID = ${main.id} and b.GroupID in (
+				select GroupID 
+				from sys_User_Groups 
+				where UserID = '#{in.syshead.userid}'
+			)
+			order by a.MenuOrder,a.ID
+		]]></sql>
+		<sql id="main" alwayarray="true" each="subnav"><![CDATA[
+			select * 
+			from sys_Menus 
+			where ID in (
+				select a.ParentID 
+				from sys_Menus a left join sys_Group_Menus b on a.ID=b.MenuID  
+				where b.GroupID in (
+					select GroupID 
+				 	from sys_User_Groups 
+				 	where UserID = '#{in.syshead.userid}'
+				)
+			)
+			order by MenuOrder,ID
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="mainnav" value="main" />
+		</out>
+	</srv>
+	
+	<srv id="sys.menu.query" desc="菜单管理->查询所有菜单">
+		<sql id="rights" alwayarray="true" condition="get('menu.id')!=null and !get('menu.id').isEmpty()" value="select *,concat(rightsvalue,'-',rightsurl) rightsname2 from sys_menu_rights where menuid='#{menu.id}'"/>
+		
+		<sql id="menu" alwayarray="true" each="rights"><![CDATA[
+			select a.*, a.parentid pid, a.menuname text, 
+				case when (select count(1) from sys_Menus where parentid = a.id)<=0 then 'item' else 'folder' end type
+			from sys_Menus a
+			order by parentid,menuorder,id
+		]]></sql>
+		<ref id="xtree" clazz="com.platform.cubism.tools.CreateTrees.toTree(#{menu})"/>
+		
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="menus" value="xtree.tree" />
+		</out>
+	</srv>
+	
+	<srv id="sys.menu.add" desc="新增菜单">
+		<sql id="add" generatedkeys="id" condition="get('in.menuname')!=null and !get('in.menuname').isEmpty()" errorcode="10011" errormsg="新增菜单失败，输入数据错误，请确认"><![CDATA[
+			insert into sys_menus(parentid, menuname, url, trancode, menuorder, iconclass, ishidden) 
+			values ('#{in.parentid}','#{in.menuname}','#{in.menuurl}','#{in.trancode}','#{in.menuorder}','#{in.menuicon}','#{in.ishidden}')
+		]]></sql>
+		<sql id="rights" condition="get('in.menurights')!=null and !get('in.menurights').isEmpty()" errorcode="10012" errormsg="新增菜单权限失败，输入数据错误，请确认"><![CDATA[
+			insert into sys_menu_rights(menuid, rightsvalue, rightsname,rightsurl) 
+			values ('#{add.id}','#{in.menurights.rightsvalue}','#{in.menurights.rightsname}','#{in.menurights.rightsurl}')
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="sys.menu.update" desc="修改菜单">
+		<quit condition="get('in.menuid')==null or get('in.menuid').isEmpty()" errorcode="10011" errormsg="修改菜单失败，上送数据不正确,请重试"/>
+		
+		<sql id="upd" errorcode="10012" errormsg="修改菜单失败，输入数据错误，请确认"><![CDATA[
+			update sys_menus set menuname='#{in.menuname}', url='#{in.menuurl}', trancode='#{in.trancode}', menuorder='#{in.menuorder}', iconclass='#{in.menuicon}',ishidden='#{in.ishidden}' where id=#{in.menuid}
+		]]></sql>
+		
+		<sql id="rightsadd" condition="get('in.menurightsadd')!=null and !get('in.menurightsadd').isEmpty()" errorcode="10013" errormsg="修改菜单权限失败，输入数据错误，请确认"><![CDATA[
+			insert into sys_menu_rights(menuid, rightsvalue, rightsname,rightsurl) 
+			values ('#{in.menuid}','#{in.menurightsadd.rightsvalue}','#{in.menurightsadd.rightsname}','#{in.menurightsadd.rightsurl}')
+		]]></sql>
+		<sql id="rightsupdate" condition="get('in.menurightsedit')!=null and !get('in.menurightsedit').isEmpty()" errorcode="10014" errormsg="修改菜单权限失败，输入数据错误，请确认"><![CDATA[
+			update sys_menu_rights set 
+				rightsvalue='#{in.menurightsedit.rightsvalue}', 
+				rightsname='#{in.menurightsedit.rightsname}',
+				rightsurl='#{in.menurightsedit.rightsurl}' 
+			where id='#{in.menurightsedit.id}' and menuid='#{in.menuid}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="sys.menu.delete" desc="删除菜单，级联删除">
+		<quit condition="get('in.menuid')==null or get('in.menuid').isEmpty()" errorcode="10011" errormsg="删除菜单失败，上送数据不正确,请重试"/>
+		<sql id="menus" errorcode="10013" errormsg="删除菜单失败，输入数据错误，请确认"><![CDATA[
+			delete from sys_menus where id=#{in.menuid}
+		]]></sql>
+		
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>	
+	<srv id="sys.menu.rights.delete" desc="删除菜单权限">
+		<quit condition="get('in.rightid')==null or get('in.rightid').isEmpty()" errorcode="10011" errormsg="删除菜单权限失败，上送数据不正确,请重试"/>
+		<sql id="rights" errorcode="10012" errormsg="删除菜单权限失败，输入数据错误，请确认"><![CDATA[
+			delete from sys_menu_rights where id=#{in.rightid}
+		]]></sql>
+		
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>	
+	
+	<!-- 未分类服务**************************************************************************************************************** -->
+	
+	<!-- 功能：查询工具栏    	 返回：角色权限信息 -->
+	<srv id="sys.usre.menu.toolbar.query">
+		<quit condition="get('in.syshead.userid')==null or get('in.syshead.userid').isEmpty()" errorcode="10011" errormsg="上送数据不正确,请重试"/>
+		<sql id="menus" alwayarray="true" value="{call sp_sys_usre_menu_toolbar('#{in.syshead.userid}','#{in.parentid}')}" />
+		<ref id="menustree" clazz="com.platform.cubism.tools.CreateTrees.toTree(#{menus.menus})"/><!-- 存储过程外包了一次数据结构，所以需要取里面的menus -->
+		
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="tree" value="menustree.tree" />
+		</out>
+	</srv>
+	<!-- 功能：保存用户工具栏按钮设置   返回：成功条数 -->
+	<srv id="sys.usre.menu.toolbar.save">
+		<sql id="del" errorcode="10012" errormsg="保存用户工具栏失败，输入数据错误，请确认"><![CDATA[
+			delete from sys_toolbar where userid='#{in.syshead.userid}'
+		]]></sql>
+		<sql id="save"  errorcode="10013" errormsg="保存用户工具栏失败，输入数据错误，请确认"><![CDATA[
+			insert into sys_toolbar(elementid,userid,menuid,iconclass) 
+			values('#{in.toolbar.elementid}','#{in.syshead.userid}','#{in.toolbar.menuid}','#{in.toolbar.iconclass}')
+		]]></sql>
+		
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<!-- 功能：新增地区   返回：成功条数 -->
+	<srv id="sys.area.add">
+		<sql id="add" condition="get('in.areaname')!=null and !get('in.areaname').isEmpty()" errorcode="10011" errormsg="新增地区失败，输入数据错误，请确认"><![CDATA[
+			insert into sys_areas(parentid, areaname, areacode, arearome, arearomeshort, telephonecode, mobilecode,areaorder,zipcode) 
+			values ('#{in.parentid}','#{in.areaname}','#{in.areacode}','#{in.arearome}','#{in.arearomeshort}','#{in.telephonecode}','#{in.mobilecode}','#{in.areaorder}','#{in.zipcode}')
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<!-- 功能：删除地区   返回：成功条数 -->
+	<srv id="sys.area.delete">
+		<quit condition="get('in.areaid')==null or get('in.areaid').isEmpty()" errorcode="10011" errormsg="删除地区失败，上送数据不正确,请重试"/>
+		<sql id="del" errorcode="10012" errormsg="删除地区失败，输入数据错误，请确认"><![CDATA[
+			delete from sys_areas where id='#{in.areaid}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<!-- 功能：修改地区   返回：成功条数 -->
+	<srv id="sys.area.update">
+		<quit condition="get('in.areaid')==null or get('in.areaid').isEmpty()" errorcode="10011" errormsg="修改地区失败，上送数据不正确,请重试"/>
+		
+		<sql id="upd" errorcode="10012" errormsg="修改地区失败，输入数据错误，请确认"><![CDATA[
+			update sys_areas set areaname='#{in.areaname}', 
+				areacode='#{in.areacode}', 
+				arearome='#{in.arearome}', 
+				arearomeshort='#{in.arearomeshort}', 
+				telephonecode='#{in.telephonecode}', 
+				mobilecode='#{in.mobilecode}',
+				areaorder='#{in.areaorder}',
+				zipcode='#{in.zipcode}'  
+			where id=#{in.areaid}
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<!-- 功能：查询系统地区   返回：地区信息-->
+	<srv id="sys.area.query">
+		<sql id="area" alwayarray="true" value="{call sp_sys_area('#{in.parentid}')}" />
+		<ref id="xtree" clazz="com.platform.cubism.tools.CreateTrees.toTree(#{area.area})"/><!-- 存储过程外包了一次数据结构，所以需要取里面的menus -->
+		
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="tree" value="xtree.tree" />
+		</out>
+	</srv>
+
+	<!-- 功能：查询用户工具栏    	 返回：工具栏信息 -->
+	<srv id="sys.usre.menu.toolbar.get">
+		<sql id="upd"><![CDATA[
+			UPDATE sys_toolbar 
+			SET menuid=NULL
+			WHERE userid='#{in.syshead.userid}' AND menuid NOT IN (
+				SELECT menuid 
+				FROM sys_group_menus 
+				WHERE groupid IN (
+					SELECT groupid 
+					FROM sys_user_groups 
+					WHERE userid='#{in.syshead.userid}'
+				)
+			)
+		]]></sql>
+		<sql id="toolbar" alwayarray="true"><![CDATA[
+			SELECT A.*,B.menuname,B.url 
+			FROM sys_toolbar A LEFT OUTER JOIN sys_menus B ON A.menuid=B.id 
+			WHERE A.userid='#{in.syshead.userid}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="toolbar" value="toolbar" />
+		</out>
+	</srv>
+</service>

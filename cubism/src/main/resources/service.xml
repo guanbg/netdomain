@@ -1,0 +1,565 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="service.xsd">
+
+	<!-- 功能：考试信息列表   返回：考试 信息 -->
+	<srv id="student.examination.query">
+		<sql id="list" alwayarray="true"><![CDATA[
+			SELECT batch_number, examination_title, date_format(examination_time,'%Y-%m-%d') as examination_time, 
+				((admission_card_print_start - NOW() < 0) AND (admission_card_print_end - NOW() > 0)) AS isValid  
+			FROM examination_batch_number 
+			ORDER BY examination_time desc, batch_number desc 
+		]]></sql>
+		<out>
+			<stc name="pagehead" value="pagehead" />
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="list" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	
+	<!-- 功能：查询考试公告  返回：公告信息 -->
+	<srv id="student.announcement.query">
+		<sql id="list" alwayarray="false" condition="get('in.batch_number')!=null and !get('in.batch_number').isEmpty()"><![CDATA[
+			SELECT examination_title,examination_name,announcement_title, announcement, (examination_time - NOW() < 0) AS hasscore  
+			FROM examination_batch_number 
+			WHERE batch_number='#{in.batch_number}' 
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<fld name="examination_title" value="list.examination_title"/>
+			<fld name="examination_name" value="list.examination_name"/>
+			<fld name="announcement_title" value="list.announcement_title"/>
+			<fld name="announcement" value="list.announcement"/>
+			<fld name="hasscore" value="list.hasscore"/>
+		</out>
+	</srv>
+	<!-- 功能：查询学生考试成绩  返回：成绩信息 -->
+	<srv id="student.examination.score.query">
+		<sql id="student" alwayarray="false" condition="get('in.batch_number')!=null and !get('in.batch_number').isEmpty() and get('in.card_id')!=null and !get('in.card_id').isEmpty() and get('in.student_name')!=null and !get('in.student_name').isEmpty()"><![CDATA[
+			SELECT score 
+			FROM student_examination 
+			WHERE batch_number='#{in.batch_number}' AND student_id IN (SELECT student_id FROM stutendts_info WHERE card_id='#{in.card_id}' AND student_name='#{in.student_name}')
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<fld name="score" value="student.score"/>
+		</out>
+	</srv>
+	
+	<!-- 功能：学生登录  返回：成功失败
+	<srv id="student.login.query">	
+		<quit condition="get('in.xingming')==null or get('in.xingming').isEmpty() or get('in.codeid')==null or get('in.codeid').isEmpty()" errorcode="10011" errormsg="登录信息输入不正确,请重试"/>
+		
+		<sql id="student" alwayarray="false"><![CDATA[
+			SELECT A.student_id, B.student_examination_id, C.admission_card_template 
+			FROM stutendts_info A left outer join student_examination B on A.student_id=B.student_id left outer join examination_batch_number C on B.batch_number=C.batch_number 
+			WHERE A.student_name='#{in.xingming}' AND A.card_id='#{in.codeid}' AND B.batch_number='#{in.batch_number}' 
+		]]></sql>
+		<sql id="upd" condition="get('student.student_examination_id')!=null and !get('student.student_examination_id').isEmpty()" errorcode="10012" errormsg="更新登录信息失败"><![CDATA[
+			UPDATE student_examination  
+			SET create_time=now() 
+			WHERE student_examination_id='#{student.student_examination_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<fld name="student_id" value="student.student_id"/>
+			<fld name="template" value="student.admission_card_template"/>
+		</out>
+	</srv> -->
+	<!-- 功能：学生登录  返回：成功失败 -->
+	<srv id="student.login.query">	
+		<sql id="login" value="{call sp_student_login('?{in.xingming}','?{in.codeid}','?{in.batch_number}','${student_id}','${admission_card_template}','${errorcode}','${errormsg}')}" />
+		<out>
+			<stc name="rethead" value="rethead" />
+			<fld name="errorcode">login.errorcode</fld>
+			<fld name="errormsg">login.errormsg</fld>
+			<fld name="student_id">login.student_id</fld>
+			<fld name="template" value="login.admission_card_template"/>
+		</out>
+	</srv>
+	
+	<!-- 功能：查询准考证信息    返回：准考证信息 -->
+	<srv id="student.admissioncard.query">
+		<quit condition="get('in.student_id')==null or get('in.student_id').isEmpty() or get('in.batch_number')==null or get('in.batch_number').isEmpty()" errorcode="10011" errormsg="请求数据不正确,请重试"/>
+		
+		<sql id="student" alwayarray="false"><![CDATA[
+			SELECT A.student_name, A.sex, A.card_id, A.institutions, A.education, A.photo, isnull(A.photo) hasphoto, A.corporate_identity, 
+				B.student_examination_id, B.admission_card_number, B.position_applied, B.extend_field_value, 
+				C.examination_name, date_format(C.examination_time,'%Y-%m-%d') as examination_time, C.examination_address, C.admission_card_prefix, C.extend_field  
+			FROM stutendts_info A left outer join student_examination B on A.student_id=B.student_id left outer join examination_batch_number C on B.batch_number=C.batch_number 
+			WHERE A.student_id='#{in.student_id}' AND B.batch_number='#{in.batch_number}' 
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="student" value="student"/>
+		</out>
+	</srv>
+	
+	<!-- 功能：查询准考证信息并导出为pdf文件    返回：准考证信息 -->
+	<srv id="student.admissioncard.export">
+		<quit condition="get('in.student_id')==null or get('in.student_id').isEmpty() or get('in.batch_number')==null or get('in.batch_number').isEmpty()" errorcode="10011" errormsg="请求数据不正确,请重试"/>
+		
+		<sql id="student" alwayarray="false"><![CDATA[
+			SELECT A.student_name, A.sex, A.card_id, A.institutions, A.education, A.photo, isnull(A.photo) hasphoto, A.corporate_identity, 
+				B.student_examination_id, B.admission_card_number, B.position_applied, 
+				C.examination_name, date_format(C.examination_time,'%Y-%m-%d') as examination_time, C.examination_address, C.admission_card_prefix 
+			FROM stutendts_info A left outer join student_examination B on A.student_id=B.student_id left outer join examination_batch_number C on B.batch_number=C.batch_number 
+			WHERE A.student_id='#{in.student_id}' AND B.batch_number='#{in.batch_number}' 
+		]]></sql>
+		<sql id="upd" errorcode="10012" errormsg="导出准考证时累加导出次数失败"><![CDATA[
+			UPDATE student_examination  
+			SET export_number=ifnull(export_number,0)+1 
+			WHERE student_id='#{in.student_id}' AND batch_number='#{in.batch_number}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="student" value="student"/>
+		</out>
+	</srv>
+	
+	<!-- 功能：保存学生的准考证信息  返回：保存成功或失败 -->
+	<srv id="student.admissioncard.save">
+		<sql id="upd1" condition="get('in.student_id')!=null and !get('in.student_id').isEmpty()" errorcode="10011" errormsg="保存学生信息失败，输入数据错误，请确认"><![CDATA[
+			UPDATE stutendts_info  
+			SET institutions='#{in.institutions}' 
+			WHERE student_id='#{in.student_id}' 
+		]]></sql>
+		<sql id="upd2" condition="get('in.student_id')!=null and !get('in.student_id').isEmpty() and get('in.batch_number')!=null and !get('in.batch_number').isEmpty()" errorcode="10012" errormsg="保存学生信息失败，输入数据错误，请确认"><![CDATA[
+			UPDATE student_examination  
+			SET position_applied='#{in.position_applied}',extend_field_value=?{in.extend_field_value} 
+			WHERE student_id='#{in.student_id}' AND batch_number='#{in.batch_number}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<!-- 功能：保存学生照片  返回：保存成功或失败 -->
+	<srv id="student.photo.save">
+		<sql id="upd" condition="get('in.student_id')!=null and !get('in.student_id').isEmpty()" errorcode="10011" errormsg="保存学生信息失败，输入数据错误，请确认"><![CDATA[
+			UPDATE stutendts_info  
+			SET photo='#{in.photofile}' 
+			WHERE student_id='#{in.student_id}' 
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	<!-- 功能：打印次数增加  返回：保存成功或失败 -->
+	<srv id="student.print_number.update">
+		<sql id="upd" condition="get('in.student_id')!=null and !get('in.student_id').isEmpty() and get('in.batch_number')!=null and !get('in.batch_number').isEmpty()" errorcode="10011" errormsg="保存学生信息失败，输入数据错误，请确认"><![CDATA[
+			UPDATE student_examination  
+			SET print_number=ifnull(print_number,0)+1 
+			WHERE student_id='#{in.student_id}' AND batch_number='#{in.batch_number}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<!-- 功能：查询考试批次信息   返回：考试 批次信息 -->
+	<srv id="backend.examination_batch.query">
+		<sql id="list" alwayarray="true"><![CDATA[
+			SELECT batch_number, examination_title, examination_name, date_format(examination_time,'%Y-%m-%d') as examination_time, 
+				examination_address,admission_card_prefix,admission_card_template,
+				date_format(admission_card_print_start,'%Y-%m-%d %H:%i') as admission_card_print_start,
+				date_format(admission_card_print_end,'%Y-%m-%d %H:%i') as admission_card_print_end,
+				announcement_title,examination_describe,create_user,extend_field,
+				date_format(create_time,'%Y-%m-%d %H:%i') as create_time
+			FROM examination_batch_number 
+			WHERE batch_number like '%#{in.batch_number}%' AND 
+				examination_title like '%#{in.examination_title}%' AND 
+				examination_name like '%#{in.examination_name}%' AND 
+				examination_address like '%#{in.examination_address}%' AND  
+				admission_card_prefix like '%#{in.admission_card_prefix}%' AND 
+				announcement_title like '%#{in.announcement_title}%' AND 
+				examination_describe like '%#{in.examination_describe}%' AND 
+				create_user like '%#{in.create_user}%' AND 
+				extend_field like '%#{in.extend_field}%' AND 
+				examination_time >= str_to_date('#{in.examination_time.start}','%Y-%m-%d') AND examination_time <= str_to_date('#{in.examination_time.end}','%Y-%m-%d') AND 
+				admission_card_print_start >= str_to_date('#{in.admission_card_print_start.start}','%Y-%m-%d %H:%i') AND admission_card_print_start <= str_to_date('#{in.admission_card_print_start.end}','%Y-%m-%d %H:%i') AND 
+				admission_card_print_end >= str_to_date('#{in.admission_card_print_end.start}','%Y-%m-%d %H:%i') AND admission_card_print_end <= str_to_date('#{in.admission_card_print_end.end}','%Y-%m-%d %H:%i') AND 
+				create_time >= str_to_date('#{in.create_time.start}','%Y-%m-%d %H:%i') AND create_time <= str_to_date('#{in.create_time.end}','%Y-%m-%d %H:%i') 
+			ORDER BY examination_time desc, batch_number desc 
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="list" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	
+	<!-- 功能：查询公告    返回：公告信息 -->
+	<srv id="backend.announcement.query">
+		<sql id="qry" alwayarray="false"><![CDATA[
+			SELECT announcement FROM examination_batch_number WHERE batch_number='#{in.batch_number}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<fld name="announcement" value="qry.announcement"/>
+		</out>
+	</srv>
+	<!-- 功能：查询考试信息，以便修改    返回：考试信息 -->
+	<srv id="backend.examination_batch.bykey.query">
+		<sql id="examination" alwayarray="false" condition="get('in.batch_number')!=null and !get('in.batch_number').isEmpty()"><![CDATA[
+			SELECT batch_number, examination_title, examination_name, date_format(examination_time,'%Y-%m-%d') as examination_time, 
+				examination_address,admission_card_prefix,admission_card_template,
+				date_format(admission_card_print_start,'%Y-%m-%d %H:%i') as admission_card_print_start,
+				date_format(admission_card_print_end,'%Y-%m-%d %H:%i') as admission_card_print_end,
+				announcement_title,announcement,examination_describe,create_user,extend_field,
+				date_format(create_time,'%Y-%m-%d %H:%i') as create_time 
+			FROM examination_batch_number WHERE batch_number='#{in.batch_number}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="examination" value="examination"/>
+			<fld name="examination_name" value="examination.examination_name"/>
+		</out>
+	</srv>
+	
+	<!-- 功能：查询当前最大考试批次号    返回：最大批次号 -->
+	<srv id="backend.batch_number.query">
+		<sql id="qry" alwayarray="false"><![CDATA[
+			SELECT MAX(batch_number) AS batch_number FROM examination_batch_number 
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<fld name="batch_number" value="qry.batch_number"/>
+		</out>
+	</srv>
+	
+	<!-- 功能：增加考试批次  返回：成功或失败 -->
+	<srv id="backend.examination_batch.add">
+		<sql id="add" errorcode="10011" errormsg="新增考试批次失败，输入数据错误，请确认"><![CDATA[
+			INSERT INTO examination_batch_number(batch_number, examination_title, examination_name, examination_time, 
+				examination_address,admission_card_prefix,admission_card_template,
+				admission_card_print_start,admission_card_print_end,
+				announcement_title,announcement,examination_describe,extend_field,create_user,create_time) 
+			VALUES('#{in.batch_number}', '#{in.examination_title}', '#{in.examination_name}', str_to_date('#{in.examination_time}','%Y-%m-%d'), 
+				'#{in.examination_address}','#{in.admission_card_prefix}','#{in.admission_card_template}',
+				str_to_date('#{in.admission_card_print_start}','%Y-%m-%d %H:%i'),str_to_date('#{in.admission_card_print_end}','%Y-%m-%d %H:%i'),
+				'#{in.announcement_title}','@{in.announcement}','#{in.examination_describe}',?{in.extend_field},'#{in.create_user}',now()) 
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	<!-- 功能：修改考试批次  返回：成功或失败 -->
+	<srv id="backend.examination_batch.update">
+		<quit condition="get('in.batch_number')==null or get('in.batch_number').isEmpty()" errorcode="10011" errormsg="请求数据不正确,请重试"/>
+		
+		<sql id="upd" errorcode="10012" errormsg="修改考试批次失败，输入数据错误，请确认"><![CDATA[
+			UPDATE examination_batch_number SET 
+				examination_title='#{in.examination_title}', 
+				examination_name='#{in.examination_name}', 
+				examination_time=str_to_date('#{in.examination_time}','%Y-%m-%d'), 
+				examination_address='#{in.examination_address}',
+				admission_card_prefix='#{in.admission_card_prefix}',
+				admission_card_template='#{in.admission_card_template}',
+				admission_card_print_start=str_to_date('#{in.admission_card_print_start}','%Y-%m-%d %H:%i'),
+				admission_card_print_end=str_to_date('#{in.admission_card_print_end}','%Y-%m-%d %H:%i'),
+				announcement_title='#{in.announcement_title}',
+				announcement='@{in.announcement}',
+				examination_describe='#{in.examination_describe}',
+				extend_field=?{in.extend_field}
+			WHERE batch_number='#{in.batch_number}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	<!-- 功能：删除考试批次  返回：成功或失败 -->
+	<srv id="backend.examination_batch.del">
+		<quit condition="get('in.batch_number')==null or get('in.batch_number').isEmpty()" errorcode="10011" errormsg="请求数据不正确,请重试"/>
+		
+		<sql id="del1" errorcode="10012" errormsg="删除考试批次失败，输入数据错误，请确认"><![CDATA[
+			DELETE FROM student_examination WHERE batch_number='#{in.batch_number}'
+		]]></sql>
+		<sql id="del2" errorcode="10013" errormsg="删除考试批次失败，输入数据错误，请确认"><![CDATA[
+			DELETE FROM examination_batch_number WHERE batch_number='#{in.batch_number}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<!-- 功能：查询学生信息   返回：学生信息 -->
+	<srv id="backend.student_info.query">
+		<sql id="list" alwayarray="true"><![CDATA[
+			SELECT student_id,student_name,sex,card_id,phone_no,education,profession,institutions,corporation,corporate_identity,date_format(create_date,'%Y-%m-%d %H:%i') as create_date
+			FROM stutendts_info 
+			WHERE student_name like '%#{in.student_name}%' AND 
+				sex like '%#{in.sex}%' AND 
+				card_id like '%#{in.card_id}%' AND 
+				phone_no like '%#{in.phone_no}%' AND  
+				education like '%#{in.education}%' AND 
+				profession like '%#{in.profession}%' AND 
+				institutions like '%#{in.institutions}%' AND 
+				corporation like '%#{in.corporation}%' AND 
+				corporate_identity like '%#{in.corporate_identity}%' AND 
+				create_date >= str_to_date('#{in.create_date.start}','%Y-%m-%d %H:%i') AND create_date <= str_to_date('#{in.create_date.end}','%Y-%m-%d %H:%i') 
+			ORDER BY create_date desc, student_id desc 
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="list" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	<!-- 功能：查询学生信息，以便修改    返回：学生信息 -->
+	<srv id="backend.student_info.bykey.query">
+		<sql id="student" alwayarray="false" condition="get('in.student_id')!=null and !get('in.student_id').isEmpty()"><![CDATA[
+			SELECT student_id,student_name,sex,card_id,phone_no,education,profession,institutions,corporation,corporate_identity,date_format(create_date,'%Y-%m-%d %H:%i') as create_date 
+			FROM stutendts_info WHERE student_id='#{in.student_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="student" value="student"/>
+		</out>
+	</srv>
+	<!-- 功能：新增学生信息  返回：成功或失败 -->
+	<srv id="backend.student_info.add">
+		<sql id="add" errorcode="10011" errormsg="新增学生失败，输入数据错误，请确认"><![CDATA[
+			INSERT INTO stutendts_info(student_name,sex,card_id,phone_no,education,profession,institutions,corporation,corporate_identity,create_date) 
+			VALUES('#{in.student_name}', '#{in.sex}', '#{in.card_id}','#{in.phone_no}','#{in.education}','#{in.profession}','#{in.institutions}','#{in.corporation}','#{in.corporate_identity}',now()) 
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<!-- 功能：修改学生信息  返回：成功或失败 -->
+	<srv id="backend.student_info.update">
+		<quit condition="get('in.student_id')==null or get('in.student_id').isEmpty()" errorcode="10011" errormsg="请求数据不正确,请重试"/>
+		
+		<sql id="upd" errorcode="10012" errormsg="修改学生信息失败，输入数据错误，请确认"><![CDATA[
+			UPDATE stutendts_info SET 
+				student_name='#{in.student_name}', 
+				sex='#{in.sex}',
+				card_id='#{in.card_id}',
+				phone_no='#{in.phone_no}',
+				education='#{in.education}',
+				profession='#{in.profession}',
+				institutions='#{in.institutions}',
+				corporation='#{in.corporation}',
+				corporate_identity='#{in.corporate_identity}'
+			WHERE student_id='#{in.student_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	<!-- 功能：删除学生信息  返回：成功或失败 -->
+	<srv id="backend.student_info.del">
+		<quit condition="get('in.student_id')==null or get('in.student_id').isEmpty()" errorcode="10011" errormsg="请求数据不正确,请重试"/>
+		
+		<sql id="del1" errorcode="10012" errormsg="删除学生信息失败，输入数据错误，请确认"><![CDATA[
+			DELETE FROM student_examination WHERE student_id='#{in.student_id}'
+		]]></sql>
+		<sql id="del2" errorcode="10013" errormsg="删除学生信息失败，输入数据错误，请确认"><![CDATA[
+			DELETE FROM stutendts_info WHERE student_id='#{in.student_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<!-- 功能：查询学生信息和考试信息   返回：学生及考试信息 -->
+	<srv id="backend.student_examination.query">
+		<sql id="list" alwayarray="true"><![CDATA[
+			SELECT A.*, date_format(A.create_time,'%Y-%m-%d %H:%i') as login_time, ISNULL(A.create_time) as islogined, 
+				B.student_name,B.sex,B.card_id,B.phone_no,B.education,B.profession,B.institutions,B.corporation,B.corporate_identity,
+				C.examination_title, C.examination_name, date_format(C.examination_time,'%Y-%m-%d') as examination_time, C.examination_address, 
+				date_format(C.admission_card_print_start,'%Y-%m-%d %H:%i') as admission_card_print_start,
+				date_format(C.admission_card_print_end,'%Y-%m-%d %H:%i') as admission_card_print_end,
+				C.announcement_title,C.examination_describe 
+			FROM student_examination A INNER JOIN stutendts_info B ON A.student_id=B.student_id INNER JOIN examination_batch_number C ON A.batch_number=C.batch_number 
+			WHERE A.admission_card_number like '%#{in.admission_card_number}%' AND 
+				A.score >= #{in.score.start} AND A.score <= #{in.score.end} AND 
+				A.print_number >= #{in.print_number.start} AND A.print_number <= #{in.print_number.end} AND 
+				A.export_number >= #{in.export_number.start} AND A.export_number <= #{in.export_number.end} AND 
+				A.create_time >= str_to_date('#{in.login_time.start}','%Y-%m-%d %H:%i') AND A.create_time <= str_to_date('#{in.login_time.end}','%Y-%m-%d %H:%i') AND 
+				A.batch_number like '%#{in.batch_number}%' AND 
+				A.position_applied like '%#{in.position_applied}%' AND 
+				A.extend_field_value like '%#{in.extend_field_value}%' AND 
+				ISNULL(A.create_time) = '#{in.islogined}' AND 
+				B.student_name like '%#{in.student_name}%' AND 
+				B.sex like '%#{in.sex}%' AND 
+				B.card_id like '%#{in.card_id}%' AND 
+				B.phone_no like '%#{in.phone_no}%' AND  
+				B.education like '%#{in.education}%' AND 
+				B.profession like '%#{in.profession}%' AND 
+				B.institutions like '%#{in.institutions}%' AND 
+				B.corporation like '%#{in.corporation}%' AND 
+				B.corporate_identity like '%#{in.corporate_identity}%' AND 
+				C.batch_number like '%#{in.batch_number}%' AND 
+				C.examination_title like '%#{in.examination_title}%' AND 
+				C.examination_name like '%#{in.examination_name}%' AND 
+				C.examination_address like '%#{in.examination_address}%' AND  
+				C.admission_card_prefix like '%#{in.admission_card_prefix}%' AND 
+				C.announcement_title like '%#{in.announcement_title}%' AND 
+				C.examination_describe like '%#{in.examination_describe}%' AND 
+				C.create_user like '%#{in.create_user}%' AND 
+				C.examination_time >= str_to_date('#{in.examination_time.start}','%Y-%m-%d') AND C.examination_time <= str_to_date('#{in.examination_time.end}','%Y-%m-%d') AND 
+				C.admission_card_print_start >= str_to_date('#{in.admission_card_print_start.start}','%Y-%m-%d %H:%i') AND C.admission_card_print_start <= str_to_date('#{in.admission_card_print_start.end}','%Y-%m-%d %H:%i') AND 
+				C.admission_card_print_end >= str_to_date('#{in.admission_card_print_end.start}','%Y-%m-%d %H:%i') AND C.admission_card_print_end <= str_to_date('#{in.admission_card_print_end.end}','%Y-%m-%d %H:%i')  
+			ORDER BY A.batch_number desc, A.admission_card_number desc, A.position_applied, A.create_time, A.student_examination_id 
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="list" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	<!-- 功能：查询学生及考试信息，以便查看明细    返回：学生及考试信息 -->
+	<srv id="backend.student_examination.bykey.query">
+		<sql id="examination" alwayarray="false" condition="get('in.student_examination_id')!=null and !get('in.student_examination_id').isEmpty()"><![CDATA[
+			SELECT A.*, date_format(A.create_time,'%Y-%m-%d %H:%i') as login_time,
+				B.student_name,B.sex,B.card_id,B.phone_no,B.education,B.profession,B.institutions,B.corporation,B.corporate_identity,
+				C.examination_title, C.examination_name, date_format(C.examination_time,'%Y-%m-%d') as examination_time, C.examination_address, 
+				date_format(C.admission_card_print_start,'%Y-%m-%d %H:%i') as admission_card_print_start,
+				date_format(C.admission_card_print_end,'%Y-%m-%d %H:%i') as admission_card_print_end,
+				C.announcement_title,C.examination_describe,C.announcement 
+			FROM student_examination A INNER JOIN stutendts_info B ON A.student_id=B.student_id INNER JOIN examination_batch_number C ON A.batch_number=C.batch_number 
+			WHERE A.student_examination_id='#{in.student_examination_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="examination" value="examination"/>
+		</out>
+	</srv>
+	
+	<!-- 功能：查询学生准考证信息    返回：学生准考证信息 -->
+	<srv id="backend.admissioncard.query">
+		<sql id="admission" alwayarray="false" condition="get('in.student_examination_id')!=null and !get('in.student_examination_id').isEmpty()"><![CDATA[
+			SELECT A.student_id, A.admission_card_number AS zkz_admission_card_number, A.position_applied AS zkz_position_applied, 
+				B.student_name AS zkz_student_name,B.sex AS zkz_sex,B.photo AS zkz_photo,B.card_id AS zkz_card_id,B.education AS zkz_education,B.institutions AS zkz_institutions,
+				C.examination_name AS zkz_examination_name, date_format(C.examination_time,'%Y-%m-%d') as zkz_examination_time, C.examination_address AS zkz_examination_address  
+			FROM student_examination A INNER JOIN stutendts_info B ON A.student_id=B.student_id INNER JOIN examination_batch_number C ON A.batch_number=C.batch_number 
+			WHERE A.student_examination_id='#{in.student_examination_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="admission" value="admission"/>
+		</out>
+	</srv>
+	
+	<!-- 功能：保存导入状态信息  返回：成功或失败 -->
+	<srv id="import.batchstatus.save">
+		<quit condition="get('in.batch_number')==null or get('in.batch_number').isEmpty()" errorcode="10011" errormsg="请求数据不正确,请重试"/>
+		
+		<sql id="status" alwayarray="false" errorcode="10012" errormsg="查询状态失败"><![CDATA[
+			SELECT COUNT(1) cnt FROM data_import_status WHERE batch_number=?{in.batch_number}
+		]]></sql>
+		<sql id="upd" condition="get('status.cnt')!=null and !get('status.cnt').isEmpty() and get('status.cnt').getIntValue() &gt; 0" errorcode="10013" errormsg="修改状态失败"><![CDATA[
+			UPDATE data_import_status SET examination_batch_number=?{in.examination_batch_number},state_code=?{in.state_code},state_desc=?{in.state_desc},update_time=NOW() WHERE batch_number=?{in.batch_number}
+		]]></sql>
+		<sql id="ins" condition="get('status.cnt')!=null and !get('status.cnt').isEmpty() and get('status.cnt').getIntValue() &lt;= 0" errorcode="10014" errormsg="新增状态信息失败"><![CDATA[
+			INSERT INTO data_import_status(batch_number,examination_batch_number,import_type,state_code,state_desc,filename,user,update_time)
+			VALUES(?{in.batch_number},?{in.examination_batch_number},?{in.import_type},?{in.state_code},?{in.state_desc},?{in.filename},?{in.user},NOW())
+		]]></sql>
+		
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	<!-- 功能：查询导入状态信息   返回：导入状态信息 -->
+	<srv id="import.data_import_status.query">
+		<sql id="list" alwayarray="true"><![CDATA[
+			SELECT A.batch_number,A.examination_batch_number,B.examination_name,A.state_code,A.state_desc,A.filename,A.user,
+				date_format(A.update_time,'%Y-%m-%d %H:%i') AS update_time, IFNULL(A.import_type,0) AS import_type 
+			FROM data_import_status A LEFT OUTER JOIN examination_batch_number B ON A.examination_batch_number=B.batch_number
+			WHERE A.batch_number like '%#{in.batch_number}%' AND 
+				A.examination_batch_number like '%#{in.examination_batch_number}%' AND 
+				B.examination_name like '%#{in.examination_name}%' AND 
+				A.state_code like '%#{in.state_code}%' AND 
+				A.state_desc like '%#{in.state_desc}%' AND 
+				A.filename like '%#{in.filename}%' AND  
+				IFNULL(A.import_type,0)='#{in.import_type}' AND  
+				A.update_time >= str_to_date('#{in.update_time.start}','%Y-%m-%d %H:%i') AND A.update_time <= str_to_date('#{in.update_time.end}','%Y-%m-%d %H:%i') 
+			ORDER BY A.update_time desc, A.batch_number desc 
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="list" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	<!-- 功能：查询导入状态信息，以便查看明细    返回：导入状态信息 -->
+	<srv id="import.data_import_status.bykey.query">
+		<sql id="status" alwayarray="false" condition="get('in.batch_number')!=null and !get('in.batch_number').isEmpty()"><![CDATA[
+			SELECT state_code,state_desc 
+			FROM data_import_status 
+			WHERE batch_number=?{in.batch_number}
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="status" value="status"/>
+		</out>
+	</srv>
+	
+	<!-- 功能：学生基本信息导入  返回：成功或失败 -->
+	<srv id="backend.stutendts_info.import">
+		<quit condition="get('in.examination_batch_number')==null or get('in.examination_batch_number').isEmpty() or get('in.batch_number')==null or get('in.batch_number').isEmpty()" errorcode="10011" errormsg="请求数据不正确,请重试"/>
+		
+		<sql id="init"  condition="get('in.isinit')!=null and get('in.isinit').getIntValue()==1" errorcode="10012" errormsg="初始化导入 数据失败，操作已撤销"><![CDATA[
+			DELETE FROM stutendts_info_import WHERE batch_number='#{in.batch_number}'
+		]]></sql>
+		
+		<!-- A姓名、B性别、C身份证号、D手机号、E专业、F学历、G毕业院校、H应聘岗位、I企业名称、J企业识别号 -->
+		<sql id="ins" condition="get('in.excel')!=null and !get('in.excel').isEmpty()" errorcode="10013" errormsg="插入数据失败，操作已撤销"><![CDATA[
+			INSERT INTO  stutendts_info_import(batch_number,student_name,sex,card_id,phone_no,profession,education,institutions,position_applied,corporation,corporate_identity)
+			VALUES(?{in.batch_number},?{in.excel.A},?{in.excel.B},?{in.excel.C},?{in.excel.D},?{in.excel.E},?{in.excel.F},?{in.excel.G},?{in.excel.H},?{in.excel.I},?{in.excel.J})
+		]]></sql>
+		
+		<sql id="end" condition="get('in.isend')!=null and get('in.isend').getIntValue()==1" value="{call sp_stutendts_info_import_end(?{in.examination_batch_number},?{in.batch_number})}" errorcode="10014" errormsg="提交已导入的数据失败，操作已撤销"/>
+		
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<!-- 功能：学生成绩信息导入  返回：成功或失败 -->
+	<srv id="backend.stutendts_score.import">
+		<quit condition="get('in.examination_batch_number')==null or get('in.examination_batch_number').isEmpty() or get('in.batch_number')==null or get('in.batch_number').isEmpty()" errorcode="10011" errormsg="请求数据不正确,请重试"/>
+		
+		<sql id="init"  condition="get('in.isinit')!=null and get('in.isinit').getIntValue()==1" errorcode="10012" errormsg="初始化导入 数据失败，操作已撤销"><![CDATA[
+			DELETE FROM stutendts_info_import WHERE batch_number='#{in.batch_number}'
+		]]></sql>
+		
+		<!-- A姓名、B身份证号、C成绩 -->
+		<sql id="ins" condition="get('in.excel')!=null and !get('in.excel').isEmpty()" errorcode="10013" errormsg="插入数据失败，操作已撤销"><![CDATA[
+			INSERT INTO  stutendts_info_import(batch_number,student_name,card_id,score)
+			VALUES(?{in.batch_number},?{in.excel.A},?{in.excel.B},?{in.excel.C})
+		]]></sql>
+		
+		<sql id="end" condition="get('in.isend')!=null and get('in.isend').getIntValue()==1" errorcode="10014" errormsg="更新学生成绩失败，操作已撤销"><![CDATA[
+			UPDATE student_examination A 
+				INNER JOIN stutendts_info B ON A.student_id=B.student_id AND A.batch_number='#{in.examination_batch_number}' 
+				INNER JOIN stutendts_info_import C ON B.card_id=C.card_id AND B.student_name=C.student_name AND C.batch_number='#{in.batch_number}' 
+			SET A.score=C.score 
+		]]></sql>
+		<sql id="end2" condition="get('in.isend')!=null and get('in.isend').getIntValue()==1" errorcode="10015" errormsg="清理学生成绩上传信息失败，操作已撤销"><![CDATA[
+			DELETE FROM stutendts_info_import WHERE batch_number='#{in.batch_number}'
+		]]></sql>
+		
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+</service>

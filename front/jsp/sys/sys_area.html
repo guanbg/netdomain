@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+		
+		<title>地区设置</title>
+		<link rel="shortcut icon" href="../../img/favicon.ico">
+		
+		<link rel="stylesheet" href="../../css/bootstrap.min.css" />
+		<link rel="stylesheet" href="../../css/bootstrap-theme.min.css" />
+		<link rel="stylesheet" href="../../css/font-awesome.min.css" />
+		<link rel="stylesheet" href="../../css/ace.min.css" />
+		<!--[if lte IE 9]>
+			<link rel="stylesheet" href="../../css/ace-part2.min.css" />
+		<![endif]-->
+		<link rel="stylesheet" href="../../css/ace-skins.min.css" />
+		<link rel="stylesheet" href="../../css/ace-rtl.min.css" />		
+		<!--[if lte IE 8]>
+		  	<link rel="stylesheet" href="../../css/ace-ie.min.css" />
+		<![endif]-->
+		<link rel="stylesheet" href="../../css/multi-select.css" />
+		<link rel="stylesheet" href="../../css/bootstrap-tagsinput.css" />
+		<link rel="stylesheet" href="../../css/default.css" />
+		<link rel="stylesheet" href="../../css/bootstrap-dialog.min.css" />
+		
+		<script src="../../js/ace-extra.min.js"></script>
+		
+		<!--[if lt IE 9]>
+			<script src="../../js/html5shiv.js"></script>
+			<script src="../../js/respond.min.js"></script>
+		<![endif]-->
+	</head>
+
+	<body class="no-skin">
+		<div class="main-container">
+			<div class="row" style='margin:0px;'>
+				<div class="col-sm-7" style='padding:0px;'>
+					<div class="widget-box no-border">
+						<div class="widget-header">
+							<h4 class="widget-title lighter smaller">选择地区</h4>
+							<div class="widget-toolbar  no-border">
+								<a href="#" data-toggle="tooltip" data-placement="bottom" data-original-title="重新加载地区树" id='refreshButton'><i class="ace-icon fa fa-refresh green" style="cursor:pointer; padding:4px"></i></a>
+							</div>
+						</div>
+						<div class="widget-body">
+							<div class="widget-main" style='padding:0px;'>
+								<div id="area_tree" class="tree"></div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-sm-5" style='padding:0px;'>
+					<div class="widget-box transparent">
+						<div class="widget-header widget-header-flat">
+							<h4 class="smaller widget-title lighter" style="line-height: 36px; padding: 0px; margin: 0px; display:inline">
+								地区信息
+								<span>
+									<a href="#" data-toggle="tooltip" data-placement="bottom" data-original-title="新增地区" id='newAreaButton'><i class="ace-icon fa fa-plus green" style="cursor:pointer; padding:4px"></i></a>
+									<a href="#" data-toggle="tooltip" data-placement="bottom" data-original-title="删除地区" id='delAreaButton'><i class="ace-icon fa fa-remove red" style="cursor:pointer; padding:4px"></i></a>
+									<a href="#" data-toggle="tooltip" data-placement="bottom" data-original-title="保存修改" id='saveAreaButton'><i class="ace-icon fa fa-save blue" style="cursor:pointer; padding:4px"></i></a>
+								</span>
+							</h4>
+							
+							<div class="widget-toolbar  no-border">
+								<a href="#" data-toggle="tooltip" data-placement="bottom" data-original-title="复制到当前节点" id='copysButton'><i class="ace-icon fa fa-copy blue" style="cursor:pointer; padding:4px"></i></a>
+							</div>
+						</div>
+						<div class="widget-body">
+							<div class="widget-main">
+								<span class="input-group">
+									<label class="input-group-addon no-padding-right input-group-addon-label" for="parentareaname">上级地区：</label>
+									<input type="text" id="parentareaname" class="form-control" readonly/>
+									<input type="hidden" id="parentid"/>
+									<input type="hidden" id="areaid"/>
+								</span>
+								<div class="space-4"></div>
+								<span class="input-group">
+									<label class="input-group-addon no-padding-right input-group-addon-label" for="areaname">地区名称：</label>
+									<input type="text" id="areaname" class="form-control" placeholder="输入地区名称" data-validation-required-message="地区名称必输"/>
+								</span>
+								<div class="space-4"></div>
+								<span class="input-group">
+									<label class="input-group-addon no-padding-right input-group-addon-label" for="areacode">地区编号：</label>
+									<input type="text" id="areacode" class="form-control" placeholder="输入地区编号" data-validation-required-message="地区编号必输"/>
+								</span>
+								<div class="space-4"></div>
+								<span class="input-group">
+									<label class="input-group-addon no-padding-right input-group-addon-label" for="areaorder">显示次序：</label>
+									<input type="number" id="areaorder" value="100" class="form-control" placeholder="输入显示次序"/>
+								</span>
+								<div class="space-4"></div>
+								<span class="input-group">
+									<label class="input-group-addon no-padding-right input-group-addon-label" for="arearome">地区全拼：</label>
+									<input type="text" id="arearome" class="form-control" placeholder="地区名称的拼音字母"/>
+								</span>
+								<div class="space-4"></div>
+								<span class="input-group">
+									<label class="input-group-addon no-padding-right input-group-addon-label" for="arearomeshort">地区简拼：</label>
+									<input type="text" id="arearomeshort" class="form-control" placeholder="地区名称的拼音的简写，一般为首字母"/>
+								</span>
+								<div class="space-4"></div>
+								<span class="input-group">
+									<label class="input-group-addon no-padding-right input-group-addon-label" for="telephonecode">固话区号：</label>
+									<input type="text" id="telephonecode" class="form-control" placeholder="固定电话的区号"/>
+								</span>
+								<div class="space-4"></div>
+								<span class="input-group">
+									<label class="input-group-addon no-padding-right input-group-addon-label" for="mobilecode">手机区码：</label>
+									<input type="text" id="mobilecode" class="form-control" data-role="tagsinput"/>
+								</span>
+								<div class="space-4"></div>
+								<span class="input-group">
+									<label class="input-group-addon no-padding-right input-group-addon-label" for="zipcode">邮政编码：</label>
+									<input type="text" id="zipcode" class="form-control"/>
+								</span>
+								<div class="space-4"></div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div><!-- /.main-container -->	
+		
+		<!--[if !IE]> -->
+			<script src="../../js/jquery-2.1.1.min.js"></script>
+		<!-- <![endif]-->
+		
+		<!--[if IE]>
+			<script src="../../js/jquery-1.11.1.min.js"></script>
+		<![endif]-->
+		
+		<!--[if !IE]> -->
+		<script type="text/javascript">
+			window.jQuery || document.write("<script src='../../js/jquery-2.1.1.min.js'>"+"<"+"/script>");
+		</script>
+		<!-- <![endif]-->
+		
+		<!--[if IE]>
+		<script type="text/javascript">
+ 			window.jQuery || document.write("<script src='../../js/jquery-1.11.1.min.js'>"+"<"+"/script>");
+		</script>
+		<![endif]-->
+		
+		<script type="text/javascript">
+			if("ontouchend" in document) document.write("<script src='../../js/jquery.mobile-1.4.5.min.js'>"+"<"+"/script>");
+		</script>
+		
+		<script src="../../js/json3.min.js"></script>
+		<script src="../../js/bootstrap.min.js"></script>
+		<script src="../../js/fuelux.tree.min.js"></script>
+		<script src="../../js/ace-elements.min.js"></script>
+		<script src="../../js/ace.min.js"></script>
+
+		<script type="text/javascript"> ace.vars['base'] = '.'; </script>
+		<script src="../../js/ace.onpage-help.js"></script>
+		<script src="../../js/rainbow.js"></script>
+		<script src="../../js/generic.js"></script>
+		<script src="../../js/html.js"></script>
+		<script src="../../js/css.js"></script>
+		<script src="../../js/javascript.js"></script>
+		
+		<script src="../../js/bootstrap-dialog.min.js"></script>
+		<script src="../../js/bootstrap-tagsinput.min.js"></script>
+		<script src="../../js/serviceUtil.js"></script>
+
+		<script type="text/javascript">
+		$(function(){
+			checkChildWindow();//有效性验证
+			$('#newAreaButton').on("click", function(){
+				if (!myValidation(".col-sm-5")) {
+			        return false;
+		        }
+				var data = packData(".col-sm-5 .widget-main");
+			    invockeServiceSync('sys.area.add.service', data, function(dt, isSucess){
+					if(!isSucess){
+						return;
+					}
+					xTip("新增成功");
+					//refreshTree();
+				});
+			});
+			$('#delAreaButton').on("click", function(){
+				var areaid = $('#areaid').val();
+				if (!areaid) {
+			        return false;
+		        }
+				if(!confirm("你确定要删除当前地区吗？")){
+					return false;
+				}
+			    invockeServiceSync('sys.area.delete.service', {areaid:areaid}, function(dt, isSucess){
+					if(!isSucess){
+						return;
+					}
+					xTip("删除成功");
+					//refreshTree();
+				});
+			});
+			$('#saveAreaButton').on("click", function(){
+				if (!myValidation(".col-sm-5")) {
+			        return false;
+		        }
+				var data = packData(".col-sm-5 .widget-main");
+			    invockeServiceSync('sys.area.update.service', data, function(dt, isSucess){
+					if(!isSucess){
+						return;
+					}
+					xTip("保存成功");
+					//refreshTree();
+				});
+			});
+			$('#refreshButton').on('click', function(){
+				$('#area_tree').removeData('tree');
+				$('.tree-folder-header', $('#area_tree')).off('click');
+				$('.tree-item', $('#area_tree')).off('click');
+				$('#area_tree').off('click.fu.tree');
+				$('#area_tree').off('click');
+				$('#area_tree').empty();
+				$('#area_tree').gbg_tree({//树初始化
+					loadingHTML:'<div class="tree-loading"><i class="ace-icon fa fa-refresh fa-spin blue"></i></div>',
+					multiSelect: false,
+					dataSource: new TreeDataSource({rootService:"sys.area.query.service",childService:"sys.area.query.service"})
+				});
+				$('#area_tree').on('click.fu.tree', treeClickHandle);
+			});
+			
+			$('#area_tree').gbg_tree({//文件树初始化
+				loadingHTML:'<div class="tree-loading"><i class="ace-icon fa fa-refresh fa-spin blue"></i></div>',
+				multiSelect: false,
+				dataSource: new TreeDataSource({rootService:"sys.area.query.service",childService:"sys.area.query.service"})
+			});
+			var treeClickHandle = function (event, data) {
+				clearField('.col-sm-5 .widget-main');
+				$('#mobilecode').tagsinput('removeAll');
+				
+				if(!$(event.target).hasClass('tree-item') && !$(event.target).parent('div').hasClass('tree-item')){
+					var isSelected = $(event.target).hasClass('tree-selected') || $(event.target).parent('div').hasClass('tree-selected');
+					$('#area_tree .tree-selected .fa-check').removeClass('fa-check').addClass('fa-times');
+					$('.tree-selected',$('#area_tree')).removeClass('tree-selected');
+					if(!isSelected){
+						if($(event.target).is('div') && !$(event.target).hasClass('tree-folder-name')){
+							$(event.target).addClass('tree-selected');
+						}
+						else{
+							$(event.target).parent('div').addClass('tree-selected');
+						}
+					}
+				}
+				
+				var tree = $('#area_tree').data('tree');
+				var items = tree.selectedItems();
+				for(var i in items) if (items.hasOwnProperty(i)) {
+					var item = items[i];
+					$('#areaid').val(item['id']);
+					$('#parentid').val(item['id']);
+					$('#areaname').val(item['name']);
+					$('#parentareaname').val(item['parentareaname']);
+					$('#areacode').val(item['areacode']);
+					$('#arearome').val(item['arearome']);
+					$('#arearomeshort').val(item['arearomeshort']);
+					$('#telephonecode').val(item['telephonecode']);
+					//$('#mobilecode').val(item['mobilecode']);
+					$('#mobilecode').tagsinput('removeAll');
+					$('#mobilecode').tagsinput('add', item['mobilecode']);
+					$('#areaorder').val(item['areaorder']);
+					$('#zipcode').val(item['zipcode']);
+				}
+			};
+			$('#area_tree').on('click.fu.tree', treeClickHandle);
+			
+			$('[data-toggle="tooltip"]').tooltip({container:'body'});
+		});
+		</script>
+	</body>
+</html>

@@ -1,0 +1,1322 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="service.xsd" 
+	defaultlogbefore="sys.log.before" defaultlogafter="sys.log.after">
+	
+	<!-- 参建单位管理**************************************************************************************************************** -->
+	<srv id="crop.registeuser.add" auth="all" desc="参建单位用户注册">
+		<sql id="exist" value="select * from fms_contractor_user where login_email='#{in.email}'" />
+		<quit condition="get('exist')!=null and !get('exist').isEmpty()" errorcode="10011" errormsg="该邮箱已被注册，请重新输入"/>
+		<sql id="business" ><![CDATA[
+			 SELECT * FROM fms_contractor_user  WHERE
+				           login_name='#{in.login_name}'
+		]]></sql>
+		<quit condition="get('business')!=null and !get('business').isEmpty()" errorcode="10011" errormsg="注册失败，该营业执照注册号已存在"/>
+		<ref id="contractor_id" clazz="com.platform.cubism.util.StringUtils.getUUID()"/>
+		<sql id="addcontractor" errorcode="10012" errormsg="注册用户失败，请重新注册"><![CDATA[
+			 insert into fms_contractor_basicinfo(contractor_id,company_name,email,business_license_reg_num,create_date) 
+			 values('#{in.contractor_id}','#{in.company_name}','#{in.email}','#{in.business_license_reg_num}',NOW())
+		]]></sql>
+		<sql id="adduser" generatedkeys="user_id" errorcode="10013" errormsg="注册用户失败，请重新注册"><![CDATA[
+			 insert into fms_contractor_user(contractor_id,login_name,login_email,login_password,user_name,user_type,user_status,create_date) 
+			 values('#{in.contractor_id}','#{in.login_name}','#{in.email}','#{in.login_password}','#{in.company_name}',0,0,NOW())
+		]]></sql>
+		
+		<out>
+			<stc name="rethead" value="rethead" />
+			<fld name="user_id">adduser.user_id</fld>
+		</out>
+		
+		<log name="log">
+			<fld name="servicedesc">"企业注册"</fld>
+			<fld name="servicename">"crop.registeuser.add"</fld>
+			<row>
+				<fld name="desc">"企业名称"</fld>
+				<fld name="data">in.company_name</fld>
+			</row>
+			<row>
+				<fld name="desc">"营业执照注册号"</fld>
+				<fld name="data">in.login_name</fld>
+			</row>
+			<row>
+				<fld name="desc">"电子邮件"</fld>
+				<fld name="data">in.email</fld>
+			</row>
+		</log>
+	</srv>
+	
+	<srv id="crop.registeuser.confirm" desc="注册用户确认">
+		<quit condition="get('in.user_id')==null or get('in.user_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！"/>
+		<sql id="exist" value="select * from fms_contractor_user where user_id='#{in.user_id}' and user_status=0 and datediff(now(),create_date)&lt;=3" />
+		<quit condition="get('exist')==null or get('exist').isEmpty()" errorcode="10012" errormsg="确认信息已过期"/>
+		<sql id="upd" errorcode="10013" errormsg="注册用户确认失败"><![CDATA[
+			 update fms_contractor_user set user_status=1,last_date=NOW()
+			 where user_id='#{in.user_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="crop.registeuser.delete" desc="删除参建单位(状态) ">
+		<quit condition="get('in.contractor_id')==null or get('in.contractor_id').isEmpty()" errorcode="10011" errormsg="删除失败，上送数据不正确,请重试"/>
+		<sql id="success" value="update fms_contractor_user set isdel=-1 where contractor_id ='#{in.contractor_id}'" />
+		<sql id="docu" value="select documentor_id from fms_contractor_documentor where contractor_id ='#{in.contractor_id}' "></sql>
+		<sql id="user" value="update fms_contractor_user set isdel=-1 where documentor_id in ('#{docu.documentor_id}')" />
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+		<log name="log">
+			<fld name="servicedesc">"删除企业"</fld>
+			<row>
+				<fld name="desc">"企业名称"</fld>
+				<fld name="data">in.company_name</fld>
+			</row>
+		</log>
+	</srv>
+	<srv id="crop.registeuserinfo.get" desc="查询参建单位注册用户信息">
+		<quit condition="get('in.user_id')==null or get('in.user_id').isEmpty()" errorcode="10011" errormsg="查询失败，上送数据不正确,请重试"/>
+		<sql id="user" value="select * from fms_contractor_user where user_id='#{in.user_id}'" />
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="user" value="user" />
+		</out>
+	</srv>
+	
+	<srv id="crop.registeuser.getall" desc="参建单位信息全查，发送消息选择参建单位">
+		<sql id="registeuser" alwayarray="true"><![CDATA[
+				SELECT '0' id, '' pid, '全体单位' TEXT
+				UNION ALL
+				SELECT contractor_id id, '1' pid, company_name TEXT
+				FROM fms_contractor_basicinfo where 
+				IFNULL(isdel,0)=0
+			]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="registeuser" value="registeuser" />
+		</out>
+	</srv>
+	<srv id="crop.audit.query" desc="查询正在审核中的参建单位信息">
+		<sql id="cropList" alwayarray="true"><![CDATA[
+			 select a.*,(
+			 	SELECT GROUP_CONCAT(dataname) 
+			 	FROM sys_data_dictionary 
+			 	WHERE FIND_IN_SET(datavalue,a.professional_list )>0 and parentid IN (
+				 		SELECT id 
+				 		FROM sys_data_dictionary 
+				 		WHERE datavalue='professional_list'
+			 		)
+			 	) professional_list_name 
+			 from fms_contractor_basicinfo a,fms_contractor_user b
+			 where a.contractor_id = b.contractor_id and
+				   a.approval_status =1 and IFNULL(b.isdel,0)=0 and
+			       a.company_name like '%#{in.company_name}%' and 
+				   a.enterprise_type like '%#{in.enterprise_type}%' and 
+				   a.email like '%#{in.email}%' and 
+				   a.legal_representative like '%#{in.legal_representative}%' and 
+				   a.contact_phone like '%#{in.contact_phone}%' and
+				   a.professional_list like '%#{in.professional_list}%' and 
+				   (SELECT COUNT(1) FROM sys_data_dictionary WHERE FIND_IN_SET(datavalue,a.professional_list)>0  AND dataname like '%#{in.professional_list_name}%' and parentid IN (SELECT id FROM sys_data_dictionary WHERE datavalue='professional_list'))>0
+			 order by submit_approval_date desc
+		]]></sql>
+		<out>
+			<stc name="pagehead" value="pagehead" />
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="cropList" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	
+	<srv id="crop.approval.query" desc="查询桌面审核中的参建单位信息">
+		<sql id="auth"><![CDATA[
+			select count(1) cnt
+			from sys_Menus a left join sys_Group_Menus b on a.ID=b.MenuID  
+			where a.url='sys/registerLog.jsp' and b.GroupID in (
+				select GroupID 
+			 	from sys_User_Groups 
+			 	where UserID = '#{in.syshead.userid}'
+			)
+		]]></sql>
+		<sql id="crop" alwayarray="true" condition="get('auth.cnt')!=null and !get('auth.cnt').isEmpty() and get('auth.cnt').getIntValue() &gt; 0"><![CDATA[
+			 select a.*,CAST((@xh:=@xh+1) AS CHAR) as xuhao 
+			 from (select @xh:=0) xh, fms_contractor_basicinfo a,fms_contractor_user b
+			 where a.approval_status =1 and
+			       a.contractor_id = b.contractor_id and
+				   IFNULL(b.isdel,0)=0
+			 order by submit_approval_date desc
+			 LIMIT 0,5
+		]]></sql>
+		<out>
+			<stc name="pagehead" value="pagehead" />
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="crop" />
+		</out>
+	</srv>
+	
+	<srv id="crop.approval.pass.query" desc="查询审核通过的参建单位信息">
+		<sql id="croppass" alwayarray="true"><![CDATA[
+			 select a.*,(
+			 	SELECT GROUP_CONCAT(dataname) 
+			 	FROM sys_data_dictionary 
+			 	WHERE FIND_IN_SET(datavalue,a.professional_list )>0 and parentid IN (
+				 		SELECT id 
+				 		FROM sys_data_dictionary 
+				 		WHERE datavalue='professional_list'
+			 		)
+			 	) professional_list_name 
+			 from  fms_contractor_basicinfo a,fms_contractor_user b
+			 where 
+				   a.contractor_id = b.contractor_id and
+				   IFNULL(b.isdel,0)=0 and
+				   approval_status in (2,4) and
+				   a.company_name like '%#{in.company_name}%' and 
+				   a.enterprise_type like '%#{in.enterprise_type}%' and 
+				   a.email like '%#{in.email}%' and 
+				   a.legal_representative like '%#{in.legal_representative}%' and 
+				   a.contact_phone like '%#{in.contact_phone}%' and
+				   a.professional_list like '%#{in.professional_list}%' and
+				   (SELECT COUNT(1) FROM sys_data_dictionary WHERE FIND_IN_SET(datavalue,a.professional_list)>0  AND dataname like '%#{in.professional_list_name}%' and parentid IN (SELECT id FROM sys_data_dictionary WHERE datavalue='professional_list'))>0
+			 order by approval_date desc
+		]]></sql>
+		<out>
+			<stc name="pagehead" value="pagehead" />
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="croppass" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	<srv id="crop.registeuser.get" desc="查询参建单位信息">
+		<quit condition="get('in.contractor_id')==null or get('in.contractor_id').isEmpty()" errorcode="10011" errormsg="查询失败，上送数据不正确,请重试"/>
+		<sql id="crop"><![CDATA[
+			 select a.*,(
+			 	SELECT GROUP_CONCAT(dataname) 
+			 	FROM sys_data_dictionary 
+			 	WHERE FIND_IN_SET(datavalue,a.professional_list )>0 and parentid IN (
+				 		SELECT id 
+				 		FROM sys_data_dictionary 
+				 		WHERE datavalue='professional_list'
+			 		)
+			 	) professional_list_name   
+			  from fms_contractor_basicinfo a where a.contractor_id='#{in.contractor_id}'
+		]]></sql>
+		<ref id="fid" clazz="com.platform.cubism.tools.DataMap.parseFileName(#{crop},'contractor_accessory')"/>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="crop" value="crop" />
+		</out>
+	</srv>
+	<srv id="crop.croplist.get" desc="查询参建单位信息">
+		<quit condition="get('in.contractor_id')==null or get('in.contractor_id').isEmpty()" errorcode="10011" errormsg="查询失败，上送数据不正确,请重试"/>
+		<sql id="crop" value="select * from fms_contractor_basicinfo where contractor_id='#{in.contractor_id}'" />
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="crop" value="crop" />
+		</out>
+	</srv>
+	<srv id="crop.userpswd.find" desc="查询满足条件的用户信息">
+		<quit condition="get('in.email')==null or get('in.email').isEmpty()" errorcode="10011" errormsg="查询失败，上送数据不正确,请重试"/>
+		<sql id="user" value="select * from fms_contractor_user where login_email='#{in.email}' and (login_name='#{in.login_name}' or login_email='#{in.login_name}' or login_mobile='#{in.login_name}')" />
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="user" value="user" />
+			<fld name="user_id">user.user_id</fld>
+		</out>
+	</srv>
+	
+	<srv id="crop.useremail.find" desc="查询满足条件的参建单位信息(邮箱)">
+		<quit condition="get('in.contractor_id')==null or get('in.contractor_id').isEmpty()" errorcode="10011" errormsg="操作失败，上送数据不正确,请重试"/>
+		<sql id="cropemail"><![CDATA[
+			SELECT * FROM fms_contractor_basicinfo WHERE 
+			contractor_id='#{in.contractor_id}' 
+			AND '#{in.email}' NOT IN(SELECT email FROM fms_contractor_basicinfo WHERE contractor_id!='#{in.contractor_id}')
+		]]></sql>
+		<quit condition="get('cropemail')==null or get('cropemail').isEmpty()" errorcode="10011" errormsg="操作失败，该邮箱已经注册！"/>
+		<sql id="cropemailuser"><![CDATA[
+			SELECT * FROM fms_contractor_user WHERE 
+			contractor_id='#{in.contractor_id}' 
+			AND '#{in.email}' NOT IN(SELECT login_email FROM fms_contractor_user WHERE contractor_id!='#{in.contractor_id}')
+		]]></sql>
+		<quit condition="get('cropemailuser')==null or get('cropemailuser').isEmpty()" errorcode="10011" errormsg="操作失败，该邮箱已经注册！"/>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="crop.userpswd.exist" desc="查询满足条件的参建单位用户信息(统计)">
+		<quit condition="get('in.user_id')==null or get('in.user_id').isEmpty()" errorcode="10011" errormsg="查询失败，上送数据不正确,请重试"/>
+		<sql id="user" value="select count(1) cnt from fms_contractor_user where user_id='#{in.user_id}' and login_password='#{in.login_password}'" />
+		<out>
+			<stc name="rethead" value="rethead" />
+			<fld name="is_exist">user.cnt</fld>
+		</out>
+	</srv>
+	<srv id="crop.userpswd.save" desc="重新设置密码">
+		<quit condition="get('in.user_id')==null or get('in.user_id').isEmpty() or get('in.userpswd')==null or get('in.userpswd').isEmpty()" errorcode="10011" errormsg="重设密码失败，上送数据不正确,请重试"/>
+		<sql id="user" value="update fms_contractor_user set login_password='#{in.userpswd}' where user_id='#{in.user_id}' and login_password='#{in.login_password}'" />
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="crop.userpswd.change" desc="修改密码">
+		<quit condition="get('in.user_id')==null or get('in.user_id').isEmpty() or get('in.oldpswd')==null or get('in.oldpswd').isEmpty()" errorcode="10011" errormsg="修改失败，上送数据不正确,请重试"/>
+		<sql id="exist" value="select count(1) cnt from fms_contractor_user where user_id='#{in.user_id}' and login_password='#{in.oldpswd}'"  errorcode="10012" errormsg="修改失败，上送数据不正确,请重试"/>
+		<quit condition="get('exist.cnt')!=null and get('exist.cnt').getIntValue() &lt;= 0" errorcode="10013" errormsg="密码验证错误，请重新输入"/>
+		<sql id="success" value="update fms_contractor_user set login_password='#{in.newpswd}' where user_id='#{in.user_id}' " errorcode="10014" errormsg="修改密码失败，请重试"/>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+		<log name="log">
+			<fld name="servicedesc">"修改密码"</fld>
+			<row>
+				<fld name="desc">"用户名称"</fld>
+				<fld name="data">in.syshead.username</fld>
+			</row>
+		</log>
+	</srv>
+	
+	<srv id="crop.info.account.update" desc="修改账户信息">
+		<quit condition="get('in.contractor_id')==null or get('in.contractor_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！"/>
+		<sql id="upd" errorcode="10012" errormsg="修改账户信息失败"><![CDATA[
+			 update fms_contractor_basicinfo set 
+			 	company_name='#{in.company_name}',
+			 	email='#{in.email}'
+			 where contractor_id='#{in.contractor_id}'
+		]]></sql>
+		<ref id="session" clazz="com.platform.cubism.front.login.Login.updateSessionUser(#{in})"/>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="crop.info.email.update" desc="修改邮箱信息">
+		<quit condition="get('in.contractor_id')==null or get('in.contractor_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！"/>
+		<sql id="updemail" errorcode="10012" errormsg="修改邮箱信息失败"><![CDATA[
+			 update fms_contractor_basicinfo set 
+			 	email='#{in.email}'
+			 where contractor_id='#{in.contractor_id}'
+		]]></sql>
+		<sql id="upduser" errorcode="10012" errormsg="修改邮箱信息失败"><![CDATA[
+			 update fms_contractor_user set 
+			 	    login_email='#{in.email}'
+			 where contractor_id='#{in.contractor_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+		
+		<log name="log">
+			<fld name="servicedesc">"修改邮箱"</fld>
+			<fld name="servicename">"crop.info.email.update"</fld>
+			<row>
+				<fld name="desc">"电子邮箱"</fld>
+				<fld name="data">in.email</fld>
+			</row>
+		</log>
+	</srv>
+	
+	<srv id="crop.info.base.update" desc="修改建设单位基本信息">
+		<in>
+			<stc name="syshead">
+			    <fld name="loginname">in.syshead.loginname</fld>
+				<fld name="departid">in.syshead.departid</fld>
+				<fld name="usertype">in.syshead.usertype</fld>
+				<fld name="seqno">in.syshead.seqno</fld>
+				<fld name="employeeid">in.syshead.employeeid</fld>
+				<fld name="username">in.syshead.username</fld>
+				<fld name="datetime">in.syshead.datetime</fld>
+				<fld name="servicename">in.syshead.servicename</fld>
+				<fld name="useragent">in.syshead.useragent</fld>
+				<fld name="userid">in.syshead.userid</fld>
+				<fld name="ip">in.syshead.ip</fld>
+				<fld name="logvalue">in.value</fld>
+				<fld name="logvalue2">in.value2</fld>
+			</stc>
+			
+			<fld name="contractor_id">in.pk</fld>
+			<fld name="#{in.name}">in.value</fld>
+		</in>
+		
+		<quit condition="get('in.contractor_id')==null or get('in.contractor_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！"/>
+		<sql id="upd" errorcode="10012" errormsg="修改建设单位基本信息失败"><![CDATA[
+			 update fms_contractor_basicinfo set * where contractor_id='#{in.contractor_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+		<log name="log">
+			<fld name="servicedesc">"企业信息修改"</fld>
+			<row>
+				<fld name="desc">"企业名称"</fld>
+				<fld name="data">in.syshead.username</fld>
+			</row>
+			<row>
+				<fld name="desc">"数据修改项"</fld>
+				<fld name="data">in.syshead.logvalue</fld>
+			</row>
+			<row>
+				<fld name="desc">"修改项描述(若为空，则无描述)"</fld>
+				<fld name="data">in.syshead.logvalue2</fld>
+			</row>
+		</log>
+	</srv>
+	
+	<srv id="crop.audit.submit" desc="提交审核参建单位信息">
+	   <quit condition="get('in.contractor_id')==null or get('in.contractor_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！" />
+	   <sql id="audit" errorcode="10012" errormsg="提交审核失败"><![CDATA[
+	         update fms_contractor_basicinfo set approval_status=1,submit_approval_date=NOW() where contractor_id = '#{in.contractor_id}'
+	   ]]></sql>
+	   <sql id="add" ><![CDATA[
+		INSERT INTO fms_audit_record (
+			  object_id,
+			  record_datetime,
+			  record_name,
+			  audit_status,
+			  record_status,
+			  object_name
+			) 
+			VALUES
+			  ('#{in.contractor_id}',
+			    NOW(),
+			   '#{in.record_name}',
+			    1,
+			    0,
+			   '#{in.record_name}')
+		]]></sql>
+		
+		<log name="log">
+			<fld name="servicedesc">"企业提交审核"</fld>
+			<row>
+				<fld name="desc">"企业名称"</fld>
+				<fld name="data">in.record_name</fld>
+			</row>
+		</log>
+	</srv>
+	
+	<srv id="crop.approval.pass.refusal" desc="审核参建单位">
+	   <quit condition="get('in.contractor_id')==null or get('in.contractor_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！" />
+	   <sql id="audit_pass" errorcode="10012" errormsg="审核失败"><![CDATA[
+	         update fms_contractor_basicinfo set approval_status='#{in.approval_status}',approval_date=NOW(),approval_user='#{in.approval_user}',approval_memo='#{in.approval_memo}' where contractor_id = '#{in.contractor_id}'
+	   ]]></sql>
+	   <sql id="add" ><![CDATA[
+		INSERT INTO fms_audit_record (
+			  object_id,
+			  record_datetime,
+			  record_name,
+			  audit_status,
+			  record_status,
+			  audit_memo,
+			  object_name
+			) 
+			VALUES
+			  ('#{in.contractor_id}',
+			    NOW(),
+			   '#{in.record_name}',
+			   '#{in.approval_status}',
+			    0,
+			   '#{in.approval_memo}',
+			   '#{in.object_name}')
+		]]></sql>
+		
+		<log name="log">
+			<fld name="servicedesc">"企业审核"</fld>
+			<row>
+				<fld name="desc">"企业名称"</fld>
+				<fld name="data">in.object_name</fld>
+			</row>
+			<row>
+				<fld name="desc">"审核状态"</fld>
+				<fld name="data">in.status_name</fld>
+			</row>
+			<row>
+				<fld name="desc">"备注"</fld>
+				<fld name="data">in.approval_memo</fld>
+			</row>
+		</log>
+	</srv>
+	
+	<srv id="crop.update.info" desc="企业变更申请">
+	   <quit condition="get('in.contractor_id')==null or get('in.contractor_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！" />
+	   <sql id="audit_pass" errorcode="10012" errormsg="变更申请失败"><![CDATA[
+	         update fms_contractor_basicinfo set approval_status=0 where contractor_id = '#{in.contractor_id}'
+	   ]]></sql>
+	    <sql id="add" ><![CDATA[
+		INSERT INTO fms_audit_record (
+			  object_id,
+			  record_datetime,
+			  record_name,
+			  audit_status,
+			  record_status,
+			  object_name
+			) 
+			VALUES
+			  ('#{in.contractor_id}',
+			    NOW(),
+			   '#{in.record_name}',
+			    0,
+			    0,
+			   '#{in.object_name}')
+		]]></sql>
+		<log name="log">
+			<fld name="servicedesc">"企业变更申请"</fld>
+			<row>
+				<fld name="desc">"企业名称"</fld>
+				<fld name="data">in.object_name</fld>
+			</row>
+		</log>
+	</srv>
+	
+	<srv id="crop.freeze.account" desc="企业业务冻结">
+	   <quit condition="get('in.contractor_id')==null or get('in.contractor_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！" />
+	   <sql id="audit_pass" errorcode="10012" errormsg="业务冻结失败"><![CDATA[
+	         update fms_contractor_basicinfo set approval_status=4 where contractor_id = '#{in.contractor_id}'
+	   ]]></sql>
+	    <sql id="add" ><![CDATA[
+		INSERT INTO fms_audit_record (
+			  object_id,
+			  record_datetime,
+			  record_name,
+			  audit_status,
+			  record_status,
+			  object_name
+			) 
+			VALUES
+			  ('#{in.contractor_id}',
+			    NOW(),
+			   '#{in.record_name}',
+			    4,
+			    0,
+			   '#{in.object_name}')
+		]]></sql>
+		<log name="log">
+			<fld name="servicedesc">"冻结企业"</fld>
+			<row>
+				<fld name="desc">"企业名称"</fld>
+				<fld name="data">in.object_name</fld>
+			</row>
+		</log>
+	</srv>
+	
+	<!-- 资料员************************************************************************************** -->
+	<srv id="crop.documentor.query" desc="查询参建单位资料员信息列表">
+		<sql id="documentor" alwayarray="true" condition="get('in.contractor_id')!=null and !get('in.contractor_id').isEmpty()"><![CDATA[
+			 select a.*, CAST((@xh:=@xh+1) AS CHAR) as xuhao 
+			 from (select @xh:=0) xh, fms_contractor_documentor a 
+			 where contractor_id='#{in.contractor_id}' and 
+			       documentor_name like '%#{in.documentor_name}%' and 
+				   mobile_no like '%#{in.mobile_no}%' and 
+				   email like '%#{in.email}%' and 
+				   introduction like '%#{in.introduction}%'
+			 order by register_date desc
+		]]></sql>
+		<out>
+			<stc name="pagehead" value="pagehead" />
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="documentor" />
+			<fld name="total">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	
+	<srv id="crop.documentor.get" desc="查询指定资料员信息">
+		<sql id="documentor" condition="get('in.documentor_id')!=null and !get('in.documentor_id').isEmpty()" errorcode="10012" errormsg="获取资料员信息失败"><![CDATA[
+			 select a.*,(SELECT GROUP_CONCAT(dataname) 
+			 	FROM sys_data_dictionary 
+			 	WHERE FIND_IN_SET(datavalue,a.professional_list )>0 AND parentid IN (
+				 		SELECT id 
+				 		FROM sys_data_dictionary 
+				 		WHERE datavalue='professional_list'
+			 		)
+			 	) professional_list_name  
+			 	from fms_contractor_documentor a where a.documentor_id='#{in.documentor_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="documentor" value="documentor" />
+		</out>
+	</srv>
+	
+	<srv id="crop.documentor.add" desc="新增资料员信息">
+		<quit condition="get('in.contractor_id')==null or get('in.contractor_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！"/>
+		<sql id="exist" value="select * from fms_contractor_user where login_email='#{in.email}' and user_type=1" />
+		<quit condition="get('exist')!=null and !get('exist').isEmpty()" errorcode="10011" errormsg="该邮箱已被注册，请重新输入"/>
+		<ref id="documentor_id" clazz="com.platform.cubism.util.StringUtils.getUUID()"/>
+		<sql id="suffix" ><![CDATA[
+			SELECT LPAD(IFNULL(MAX(suffix),1),3,'0') suffix FROM(
+			SELECT (@xh:=@xh+1) AS suffix 
+			FROM (SELECT @xh:=1) xh, fms_contractor_user
+			WHERE documentor_id IN (SELECT documentor_id FROM fms_contractor_documentor WHERE contractor_id='#{in.contractor_id}'))X
+		]]></sql>
+		<sql id="add" errorcode="10012" errormsg="新增资料员信息失败"><![CDATA[
+			INSERT INTO fms_contractor_documentor (
+			  documentor_id,
+			  contractor_id,
+			  documentor_name,
+			  mobile_no,
+			  email,
+			  tenders_code,
+			  company_name,
+			  contact_phone,
+			  register_date,
+			  approval_status,
+			  login_name,
+			  datebase_status
+			) 
+			VALUES
+			  ( 
+			    '#{in.documentor_id}',
+			    '#{in.contractor_id}',
+			    '#{in.documentor_name}',
+			    '#{in.mobile_no}',
+			    '#{in.email}',
+                '#{in.tenders_code}',
+			    '#{in.company_name}',
+			    '#{in.contact_phone}',
+			    NOW(),
+			    0,
+			   '#{in.login_name}#{suffix.suffix}',
+			    0
+			  )
+		]]></sql>
+		<sql id="adduser" generatedkeys="user_id" errorcode="10013" errormsg="新增资料员失败"><![CDATA[
+			 insert into fms_contractor_user(documentor_id,login_name,login_email,login_password,user_name,user_type,user_status,create_date) 
+			 values('#{in.documentor_id}','#{in.login_name}#{suffix.suffix}','#{in.email}','#{in.login_password}','#{in.documentor_name}',1,1,NOW())
+		]]></sql>
+		<sql id="name" value="select login_name as name from fms_contractor_user where documentor_id='#{in.documentor_id}'"/>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<fld name="user_id">adduser.user_id</fld>
+			<fld name="documentor">name.name</fld>
+		</out>
+		
+		<log name="log">
+			<fld name="servicedesc">"新增资料员"</fld>
+			<row>
+				<fld name="desc">"资料员姓名"</fld>
+				<fld name="data">in.documentor_name</fld>
+			</row>
+			<row>
+				<fld name="desc">"所属企业"</fld>
+				<fld name="data">in.company_name</fld>
+			</row>
+			<row>
+				<fld name="desc">"电子邮箱"</fld>
+				<fld name="data">in.email</fld>
+			</row>
+		</log>
+	</srv>
+	
+	<srv id="crop.documentor.update" desc="修改资料员信息企业页面">
+	    <sql id="exist" value="select * from fms_contractor_user where login_email='#{in.email}' and user_type=1 and documentor_id!='#{in.documentor_id}'" />
+		<quit condition="get('exist')!=null and !get('exist').isEmpty()" errorcode="10011" errormsg="该邮箱已被注册，请重新输入"/>
+		<quit condition="get('in.documentor_id')==null or get('in.documentor_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！"/>
+		<sql id="upd" errorcode="10012" errormsg="修改资料员信息失败"><![CDATA[
+			 update fms_contractor_documentor set *,last_date=NOW() where documentor_id='#{in.documentor_id}'
+		]]></sql>
+		<sql id="upduser" errorcode="10012" errormsg="修改资料员信息失败"><![CDATA[
+			 update fms_contractor_user set login_email='#{in.email}',last_date=NOW() where documentor_id='#{in.documentor_id}'
+		]]></sql>
+		<sql id="name" value="select login_name as name from fms_contractor_user where documentor_id='#{in.documentor_id}'"/>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<fld name="documentor">name.name</fld>
+		</out>
+		<log name="log">
+			<fld name="servicedesc">"资料员基本信息修改"</fld>
+			<row>
+				<fld name="desc">"资料员姓名"</fld>
+				<fld name="data">in.documentor_name</fld>
+			</row>
+			<row>
+				<fld name="desc">"联系电话"</fld>
+				<fld name="data">in.mobile_no</fld>
+			</row>
+			<row>
+				<fld name="desc">"电子邮箱"</fld>
+				<fld name="data">in.email</fld>
+			</row>
+			<row>
+				<fld name="desc">"标段代号"</fld>
+				<fld name="data">in.tenders_code</fld>
+			</row>
+		</log>
+	</srv>
+	
+	<srv id="crop.docu.base.update" desc="修改资料员基本信息资料员页面">
+		<in>
+			<stc name="syshead">
+			    <fld name="loginname">in.syshead.loginname</fld>
+				<fld name="departid">in.syshead.departid</fld>
+				<fld name="usertype">in.syshead.usertype</fld>
+				<fld name="seqno">in.syshead.seqno</fld>
+				<fld name="employeeid">in.syshead.employeeid</fld>
+				<fld name="username">in.syshead.username</fld>
+				<fld name="datetime">in.syshead.datetime</fld>
+				<fld name="servicename">in.syshead.servicename</fld>
+				<fld name="useragent">in.syshead.useragent</fld>
+				<fld name="userid">in.syshead.userid</fld>
+				<fld name="ip">in.syshead.ip</fld>
+				<fld name="logvalue">in.value</fld>
+				<fld name="logvalue2">in.value2</fld>
+			</stc>
+			<fld name="documentor_id">in.pk</fld>
+			<fld name="#{in.name}">in.value</fld>
+		</in>
+		
+		<quit condition="get('in.documentor_id')==null or get('in.documentor_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！"/>
+		<sql id="upd1" errorcode="10012" errormsg="修改资料员信息失败"><![CDATA[
+			 update  fms_contractor_user set last_date=NOW() where documentor_id='#{in.documentor_id}'
+		]]></sql>
+		
+		<sql id="upd" errorcode="10012" errormsg="修改资料员信息失败"><![CDATA[
+			 update fms_contractor_documentor set *,last_date=NOW() where documentor_id='#{in.documentor_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+		<log name="log">
+			<fld name="servicedesc">"资料员详细信息修改"</fld>
+			<row>
+				<fld name="desc">"资料员姓名"</fld>
+				<fld name="data">in.syshead.username</fld>
+			</row>
+			<row>
+				<fld name="desc">"修改数据项"</fld>
+				<fld name="data">in.syshead.logvalue</fld>
+			</row>
+			<row>
+				<fld name="desc">"数据项描述(若为空，则无描述)"</fld>
+				<fld name="data">in.syshead.logvalue2</fld>
+			</row>
+		</log>
+	</srv>
+	
+	<srv id="crop.documentor.delete" desc="删除资料员信息">
+		<quit condition="get('in.documentor_id')==null or get('in.documentor_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！"/>
+		<sql id="del" errorcode="10012" errormsg="删除资料员信息失败"><![CDATA[
+			 DELETE FROM fms_contractor_user WHERE documentor_id='#{in.documentor_id}'
+		]]></sql>
+		<sql id="del" errorcode="10012" errormsg="删除资料员信息失败"><![CDATA[
+			 delete from fms_contractor_documentor where documentor_id = '#{in.documentor_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+		<log name="log">
+			<fld name="servicedesc">"删除资料员"</fld>
+			<row>
+				<fld name="desc">"资料员姓名"</fld>
+				<fld name="data">in.documentor_name</fld>
+			</row>
+		</log>
+	</srv>
+	<srv id="crop.documentor.submit" desc="提交审核资料员信息">
+	   <quit condition="get('in.documentor_id')==null or get('in.documentor_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！" />
+	   <sql id="sub" errorcode="10012" errormsg="提交审核失败"><![CDATA[
+	         update fms_contractor_documentor set approval_status=1,submit_documentor_audit=NOW() where documentor_id = '#{in.documentor_id}'
+	   ]]></sql>
+	   <sql id="add" ><![CDATA[
+		INSERT INTO fms_audit_record (
+			  object_id,
+			  record_datetime,
+			  record_name,
+			  audit_status,
+			  record_status,
+			  object_name
+			) 
+			VALUES
+			  ('#{in.contractor_id}',
+			    NOW(),
+			   '#{in.record_name}',
+			    1,
+			    1,
+			   '#{in.object_name}')
+		]]></sql>
+		<log name="log">
+			<fld name="servicedesc">"资料员提交审核"</fld>
+			<row>
+				<fld name="desc">"资料员姓名"</fld>
+				<fld name="data">in.object_name</fld>
+			</row>
+			<row>
+				<fld name="desc">"所属企业"</fld>
+				<fld name="data">in.company_name</fld>
+			</row>
+		</log>
+	</srv>
+	
+	<srv id="crop.audit.base.update" desc="扫描附件上传">
+		<in>
+			<stc name="syshead" value="in.syshead"/>
+			<fld name="documentor_id">in.pk</fld>
+			<fld name="scan_accessory">in.scan</fld>
+			<fld name="#{in.name}">in.value</fld>
+		</in>
+		<quit condition="get('in.documentor_id')==null or get('in.documentor_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！"/>
+		<sql id="updcode" errorcode="10012" errormsg="扫描附件上传失败"><![CDATA[
+			 update fms_contractor_documentor set scan_accessory='#{in.scan_accessory}' where documentor_id = '#{in.documentor_id}'
+		]]></sql>
+		<ref id="fid" clazz="com.platform.cubism.tools.DataMap.parseFileName(#{in},'scan_accessory')"/>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+		
+		<log name="log">
+			<fld name="servicedesc">"资料员扫描附件上传"</fld>
+			<row>
+				<fld name="desc">"附件名称"</fld>
+				<fld name="data">in.scan_accessory_filename</fld>
+			</row>
+			<row>
+				<fld name="desc">"上传人"</fld>
+				<fld name="data">in.syshead.username</fld>
+			</row>
+		</log>
+	</srv>
+	
+	<srv id="crop.photo.base.update" desc="照片上传">
+		<in>
+			<stc name="syshead" value="in.syshead"/>
+			<fld name="documentor_id">in.pk</fld>
+			<fld name="photo">in.scan</fld>
+			<fld name="#{in.name}">in.value</fld>
+		</in>
+		<quit condition="get('in.documentor_id')==null or get('in.documentor_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！"/>
+		<sql id="updcode" errorcode="10012" errormsg="照片上传失败"><![CDATA[
+			 update fms_contractor_documentor set photo='#{in.photo}' where documentor_id = '#{in.documentor_id}'
+		]]></sql>
+		<ref id="fid" clazz="com.platform.cubism.tools.DataMap.parseFileName(#{in},'photo')"/>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+		<log name="log">
+	   <fld name="servicedesc">"资料员照片上传"</fld>
+			<row>
+				<fld name="desc">"照片名称"</fld>
+				<fld name="data">in.photo_filename</fld>
+			</row>
+			<row>
+				<fld name="desc">"上传人"</fld>
+				<fld name="data">in.syshead.username</fld>
+			</row>
+		</log>
+	</srv>
+	
+	<srv id="crop.doucmentorApproval.query" desc="桌面查询资料员待审核信息">
+		<sql id="auth"><![CDATA[
+			select count(1) cnt
+			from sys_Menus a left join sys_Group_Menus b on a.ID=b.MenuID  
+			where a.url='documentor/documentorAudit.jsp' and b.GroupID in (
+				select GroupID 
+			 	from sys_User_Groups 
+			 	where UserID = '#{in.syshead.userid}'
+			)
+		]]></sql>
+		<sql id="documentor" alwayarray="true" condition="get('auth.cnt')!=null and !get('auth.cnt').isEmpty() and get('auth.cnt').getIntValue() &gt; 0"><![CDATA[
+		SELECT 
+		  a.*,
+		  CAST((@xh := @xh + 1) AS CHAR) AS xuhao 
+		FROM
+		  (SELECT 
+		    @xh := 0) xh,
+		  fms_contractor_documentor a 
+		  ,fms_contractor_basicinfo b 
+		WHERE a.approval_status = 1 
+		  AND a.contractor_id = b.contractor_id
+		  AND a.documentor_id IN(
+		   SELECT documentor_id FROM fms_contractor_user WHERE IFNULL(isdel, 0) = 0
+		  )
+		  AND b.contractor_id IN (
+		   SELECT contractor_id FROM fms_contractor_user WHERE IFNULL(isdel, 0) = 0
+		  )
+		  AND b.approval_status IN (2, 4)
+		  ORDER BY submit_documentor_audit DESC 
+		  LIMIT 0, 5 
+		]]></sql>
+		<out>
+			<stc name="pagehead" value="pagehead" />
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="documentor" />
+		</out>
+	</srv>
+	
+	<srv id="crop.documentor.approval" desc="查询待审核的资料员信息">
+		<sql id="documentorApp" alwayarray="true"><![CDATA[
+				SELECT 
+				  a.*,
+                (SELECT GROUP_CONCAT(dataname) 
+			 	FROM sys_data_dictionary 
+			 	WHERE FIND_IN_SET(datavalue,a.professional_list )>0 AND parentid IN (
+				 		SELECT id 
+				 		FROM sys_data_dictionary 
+				 		WHERE datavalue='professional_list'
+			 		)
+			 	) professional_list_name 
+				 FROM
+				   fms_contractor_documentor a,fms_contractor_basicinfo b 
+				WHERE 
+				      a.approval_status = 1 
+				  AND b.approval_status IN (2, 4) 
+				  AND a.contractor_id = b.contractor_id
+				  AND a.documentor_id IN(
+				   SELECT documentor_id FROM fms_contractor_user WHERE IFNULL(isdel, 0) = 0
+				  )
+				  AND b.contractor_id IN (
+				   SELECT contractor_id FROM fms_contractor_user WHERE IFNULL(isdel, 0) = 0
+				  )
+				  AND a.company_name LIKE '%#{in.company_name}%' 
+				  AND a.documentor_name LIKE '%#{in.documentor_name}%' 
+				  AND a.mobile_no LIKE '%#{in.mobile_no}%' 
+				  AND a.email LIKE '%#{in.email}%' 
+				  AND a.contact_phone LIKE '%#{in.contact_phone}%' 
+				  AND a.professional_list like '%#{in.professional_list}%' 
+				  AND  (SELECT COUNT(1) FROM sys_data_dictionary WHERE FIND_IN_SET(datavalue,a.professional_list)>0  AND dataname LIKE '%#{in.professional_list_name}%' AND parentid IN (SELECT id FROM sys_data_dictionary WHERE datavalue='professional_list'))>0
+				  ORDER BY submit_documentor_audit DESC 
+		]]></sql>
+		<out>
+			<stc name="pagehead" value="pagehead" />
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="documentorApp" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	
+	<srv id="crop.documentor.passapproval" desc="查询审核通过的资料员信息">
+		<sql id="documentorPass" alwayarray="true"><![CDATA[
+					SELECT 
+					  a.*,
+					   (SELECT GROUP_CONCAT(dataname) 
+					 	FROM sys_data_dictionary 
+					 	WHERE FIND_IN_SET(datavalue,a.professional_list )>0 AND parentid IN (
+						 		SELECT id 
+						 		FROM sys_data_dictionary 
+						 		WHERE datavalue='professional_list'
+					 		)
+					 	) professional_list_name 
+					FROM
+					  fms_contractor_documentor a ,fms_contractor_basicinfo b  
+					WHERE 
+					  a.contractor_id = b.contractor_id
+					  AND a.documentor_id IN(
+					   SELECT documentor_id FROM fms_contractor_user WHERE IFNULL(isdel, 0) = 0
+					  )
+					  AND b.contractor_id IN (
+					   SELECT contractor_id FROM fms_contractor_user WHERE IFNULL(isdel, 0) = 0
+					  ) 
+					  AND b.approval_status IN (2, 4) 
+					  AND a.approval_status IN (2, 4) 
+					  AND a.company_name LIKE '%#{in.company_name}%' 
+					  AND a.documentor_name LIKE '%#{in.documentor_name}%' 
+					  AND a.mobile_no LIKE '%#{in.mobile_no}%' 
+					  AND a.email LIKE '%#{in.email}%' 
+					  AND a.contact_phone LIKE '%#{in.contact_phone}%'
+					  AND a.professional_list like '%#{in.professional_list}%'
+					  AND  (SELECT COUNT(1) FROM sys_data_dictionary WHERE FIND_IN_SET(datavalue,a.professional_list)>0  AND dataname LIKE '%#{in.professional_list_name}%' AND parentid IN (SELECT id FROM sys_data_dictionary WHERE datavalue='professional_list'))>0
+					  ORDER BY approval_date DESC 
+		]]></sql>
+		<out>
+			<stc name="pagehead" value="pagehead" />
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="documentorPass" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	
+	<srv id="crop.documentor.pass.refusal" desc="审核资料员信息">
+	   <quit condition="get('in.documentor_id')==null or get('in.documentor_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！" />
+	   <sql id="documentor_pass" errorcode="10012" errormsg="审核失败"><![CDATA[
+	         update fms_contractor_documentor set approval_status='#{in.approval_status}',approval_date=NOW(),approval_user='#{in.approval_user}',approval_memo='#{in.approval_memo}',datebase_status="#{in.datebase_status}"  where documentor_id = '#{in.documentor_id}'
+	   ]]></sql>
+	   <sql id="add" ><![CDATA[
+		INSERT INTO fms_audit_record (
+			  object_id,
+			  record_datetime,
+			  record_name,
+			  audit_status,
+			  record_status,
+			  audit_memo,
+			  object_name
+			) 
+			VALUES
+			  ('#{in.contractor_id}',
+			    NOW(),
+			   '#{in.record_name}',
+			   '#{in.approval_status}',
+			    1,
+			   '#{in.approval_memo}',
+			   '#{in.object_name}')
+		]]></sql>
+		
+		<log name="log">
+			<fld name="servicedesc">"审核资料员"</fld>
+			<row>
+				<fld name="desc">"资料员姓名"</fld>
+				<fld name="data">in.object_name</fld>
+			</row>
+			<row>
+				<fld name="desc">"审核状态"</fld>
+				<fld name="data">in.status_name</fld>
+			</row>
+			<row>
+				<fld name="desc">"备注"</fld>
+				<fld name="data">in.approval_memo</fld>
+			</row>
+		</log>
+	</srv>
+	
+	<!-- 
+	  <srv id="docu.update.info" desc="资料员变更申请">
+	   <quit condition="get('in.documentor_id')==null or get('in.documentor_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！" />
+	   <sql id="audit_pass" errorcode="10012" errormsg="变更申请失败"><![CDATA[
+	         update fms_contractor_documentor set approval_status=0 where documentor_id = '#{in.documentor_id}'
+	   ]]></sql>
+	    <sql id="add" ><![CDATA[
+		INSERT INTO fms_audit_record (
+			  object_id,
+			  record_datetime,
+			  record_name,
+			  audit_status,
+			  record_status,
+			  object_name
+			) 
+			VALUES
+			  ('#{in.contractor_id}',
+			    NOW(),
+			   '#{in.record_name}',
+			    0,
+			    1,
+			   '#{in.object_name}')
+		]]></sql>
+	</srv>
+	 -->
+	
+	<srv id="docu.freeze.info" desc="冻结资料员业务">
+	   <quit condition="get('in.documentor_id')==null or get('in.documentor_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！" />
+	   <sql id="freeze" errorcode="10012" errormsg="冻结失败"><![CDATA[
+	         update fms_contractor_documentor set approval_status=4,datebase_status=-1 where documentor_id = '#{in.documentor_id}'
+	   ]]></sql>
+	    <sql id="add" ><![CDATA[
+		INSERT INTO fms_audit_record (
+			  object_id,
+			  record_datetime,
+			  record_name,
+			  audit_status,
+			  record_status,
+			  object_name
+			) 
+			VALUES
+			  ('#{in.contractor_id}',
+			    NOW(),
+			   '#{in.record_name}',
+			    4,
+			    1,
+			   '#{in.object_name}')
+		]]></sql>
+		<log name="log">
+			<fld name="servicedesc">"冻结资料员"</fld>
+			<row>
+				<fld name="desc">"资料员姓名"</fld>
+				<fld name="data">in.object_name</fld>
+			</row>
+			<row>
+				<fld name="desc">"所属企业"</fld>
+				<fld name="data">in.company_name</fld>
+			</row>
+		</log>
+	</srv>
+	
+	<srv id="docu.freezelogin.info" desc="删除资料员">
+	   <quit condition="get('in.documentor_id')==null or get('in.documentor_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！" />
+	   <sql id="free" errorcode="10012" errormsg="删除失败"><![CDATA[
+	         UPDATE fms_contractor_user SET isdel = -1 WHERE documentor_id ='#{in.documentor_id}'
+	   ]]></sql>
+	   	<log name="log">
+			<fld name="servicedesc">"删除资料员"</fld>
+			<row>
+				<fld name="desc">"资料员姓名"</fld>
+				<fld name="data">in.documentor_name</fld>
+			</row>
+		</log>
+	</srv>
+	
+	<!-- 审核记录表查询 ************************************************************************************************************* -->
+
+	<srv id="audit.record.list" desc="查询所有审核记录">
+		<quit condition="get('in.contractor_id')==null or get('in.contractor_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！" />
+		<sql id="row" alwayarray="true"><![CDATA[
+				SELECT  a.* ,CAST((@xh:=@xh+1) AS CHAR) as xuhao 
+			    from (select @xh:=0) xh,fms_audit_record  a
+			    where object_id="#{in.contractor_id}"
+				order by record_datetime desc
+			]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="row" />
+		</out>
+	</srv>
+	
+	<srv id="audit.docurecord.list" desc="查询该资料员的审核记录">
+		<quit condition="get('in.contractor_id')==null or get('in.contractor_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！" />
+		<sql id="row" alwayarray="true"><![CDATA[
+				SELECT  a.* ,CAST((@xh:=@xh+1) AS CHAR) as xuhao 
+			    from (select @xh:=0) xh,fms_audit_record  a
+			    where object_id="#{in.contractor_id}" and
+			    record_status =1 and
+			    object_name ='#{in.object_name}'
+				order by record_datetime desc
+			]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="row" />
+		</out>
+	</srv>
+	<!-- 统计消息*********************************************** -->
+	<srv id="crop.msg.count" desc="统计收取到的消息个数">
+		<quit condition="get('in.contractor_id')==null or get('in.contractor_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！" />
+		<sql id="msg" alwayarray="true"><![CDATA[
+				SELECT COUNT(receive_id) cnt FROM sys_msg_receive R,sys_msg S WHERE receive_user ='#{in.contractor_id}' and  read_time IS NULL and R.msg_id = S.msg_id and S.msg_status=2
+			]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<fld name="msg">msg.cnt</fld>
+		</out>
+	</srv>
+	
+	<!-- 资料库管理**************************************************************************************************************** -->
+	
+	<srv id="crop.library.select.query" desc="资料库选择">
+		<sql id="library" alwayarray="true"><![CDATA[
+			 SELECT fs_ID VALUE, fs_name TEXT FROM fms_library_#{version.version_id} WHERE ID_type=1 ORDER BY fs_code
+		]]></sql>
+		<sql id="version" alwayarray="true" each="library"><![CDATA[
+			 SELECT version_id,version_num,version_name FROM fms_version WHERE IFNULL(is_current,0)=1
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="version" value="version" />
+		</out>
+	</srv>
+	
+	<srv id="crop.library.profession.query" desc="查询版本库专业树">
+		<quit condition="get('in.version_id')==null or get('in.version_id').isEmpty()" errorcode="10011" errormsg="版本信息错误！" />
+		<sql id="profession" alwayarray="true" condition="get('in.parentid')==null or get('in.parentid').isEmpty()"><![CDATA[
+			select *, case when haschild>0 then 'folder' else 'item' end type, haschild isleaf
+			from (
+				SELECT A.*, A.fs_id id, A.parent_id pid, A.parent_id parentid, A.fs_name NAME, A.fs_name TEXT, 
+					(select count(1) from fms_library_#{in.version_id} where parent_id=A.fs_id and id_type in (0,1,2)) haschild 
+				from fms_library_#{in.version_id} A 
+				where parent_id='#{in.id}'
+			)x
+			order by disp_order
+		]]></sql>
+		<sql id="profession" alwayarray="true" condition="get('in.parentid')!=null and !get('in.parentid').isEmpty()"><![CDATA[
+			select *, case when haschild>0 then 'folder' else 'item' end type, haschild isleaf
+			from (
+				SELECT A.*, A.fs_id id, A.parent_id pid, A.parent_id parentid, A.fs_name NAME, A.fs_name TEXT, 
+					(select count(1) from fms_library_#{in.version_id} where parent_id=A.fs_id and id_type in (0,1,2)) haschild 
+				from fms_library_#{in.version_id} A 
+				where parent_id='#{in.parentid}'
+			)x
+			order by disp_order
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="tree" value="profession" />
+		</out>
+	</srv>
+	
+	<srv id="crop.library.profession2.query" desc="查询版本库专业树">
+		<quit condition="get('in.version_id')==null or get('in.version_id').isEmpty()" errorcode="10011" errormsg="操作失败,没有找到可用版本" />
+		<sql id="profession" alwayarray="true" condition="get('in.parentid')!=null and !get('in.parentid').isEmpty()"><![CDATA[
+			select *, case when haschild>0 then 'folder' else 'item' end type, haschild isleaf
+			from (
+				SELECT A.*, A.fs_id id, A.parent_id pid, A.parent_id parentid, A.fs_name NAME, A.fs_name TEXT, 
+					(select count(1) from fms_library_#{in.version_id} where parent_id=A.fs_id and id_type in (0,1,2)) haschild 
+				from fms_library_#{in.version_id} A 
+				where parent_id='#{in.parentid}'
+			)x
+			order by disp_order
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="tree" value="profession" />
+		</out>
+	</srv>
+	
+	<srv id="crop.library.add" desc="创建参建单位资料库">
+		<sql id="add" generatedkeys="lib_id" errorcode="10011" errormsg="创建资料库失败，稍后请重试"><![CDATA[
+			 insert into fms_contractor_database(version_id,fs_ids,fs_names,lib_aliase,user_id,create_user,download_num,create_date) 
+			 values('#{in.version_id}','@{in.fs_ids}','@{in.fs_names}','#{in.lib_aliase}','#{in.syshead.userid}','#{in.syshead.userid}',0,NOW())
+		]]></sql>
+		
+		<out>
+			<stc name="rethead" value="rethead" />
+			<fld name="lib_id">add.lib_id</fld>
+		</out>
+		
+		<log name="log">
+			<fld name="servicedesc">"创建业务资料库"</fld>
+			<row>
+				<fld name="desc">"档案库版本 "</fld>
+				<fld name="data">in.version_name</fld>
+			</row>
+			<row>
+				<fld name="desc">"资料库名称"</fld>
+				<fld name="data">in.lib_aliase</fld>
+			</row>
+			<row>
+				<fld name="desc">"专业"</fld>
+				<fld name="data">in.fs_names</fld>
+			</row>
+			<row>
+				<fld name="desc">"企业"</fld>
+				<fld name="data">in.crop_confirm</fld>
+			</row>
+			<row>
+				<fld name="desc">"创建人 "</fld>
+				<fld name="data">in.syshead.username</fld>
+			</row>
+			<row>
+				<fld name="desc">"创建日期"</fld>
+				<fld name="data">in.syshead.datetime</fld>
+			</row>
+		</log>
+	</srv>
+	<srv id="crop.library.delete" desc="删除参建单位资料库">
+		<quit condition="get('in.lib_id')==null or get('in.lib_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！"/>
+		<sql id="del1" errorcode="10012" errormsg="删除关联信息失败"><![CDATA[
+			 DELETE FROM fms_progress_summary_report WHERE lib_id='#{in.lib_id}'
+		]]></sql>
+		<sql id="del2" errorcode="10013" errormsg="删除参建单位资料库失败"><![CDATA[
+			 DELETE FROM fms_contractor_database WHERE lib_id='#{in.lib_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+		<log name="log">
+			<fld name="servicedesc">"删除业务资料库"</fld>
+			<row>
+				<fld name="desc">"资料库名称"</fld>
+				<fld name="data">in.lib_aliase</fld>
+			</row>
+			<row>
+				<fld name="desc">"专业"</fld>
+				<fld name="data">in.fs_names</fld>
+			</row>
+		</log>
+	</srv>
+	<srv id="crop.library.query" desc="查询参建单位资料库信息列表">
+		<sql id="lib" alwayarray="true"><![CDATA[
+			 select a.lib_id,a.version_id,a.fs_names,a.lib_aliase,a.download_num,a.ndfile,
+			 	(select user_name from fms_contractor_user where user_id=a.create_user) create_user_name,
+			 	(select user_name from fms_contractor_user where user_id=a.last_user) last_user_name,
+			 	date_format(a.create_date,'%Y-%m-%d') create_date,
+			 	date_format(a.last_date,'%Y-%m-%d') last_date,
+			 	CAST((@xh:=@xh+1) AS CHAR) as xuhao 
+			 from (select @xh:=0) xh, fms_contractor_database a 
+			 where user_id='#{in.syshead.userid}' and 
+			 	lib_id='#{in.lib_id}' and 
+			    lib_aliase like '%#{in.lib_aliase}%' 
+			 order by last_date desc, create_date desc, lib_id desc
+		]]></sql>
+		<out>
+			<stc name="pagehead" value="pagehead" />
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="lib" />
+			<fld name="total">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	
+	<srv id="offline.progress.summary.report" desc="离线端调用接口">
+		<sql id="exists" ><![CDATA[
+			select count(1) cnt from fms_contractor_documentor where documentor_id='#{in.documentor_id}' and documentor_name='#{in.documentor_name}' 
+		]]></sql>
+		<quit condition="get('exists.cnt')==null or get('exists.cnt').getIntValue() &lt;= 0" errorcode="10011" errormsg="资料员不存在"/>
+		
+		<sql id="add" errorcode="10012" errormsg="上送接口调用失败"><![CDATA[
+			 insert into fms_progress_summary_report(lib_id,documentor_id,documentor_name,foldertemplate_num,entryfile_num,formsfiles_num,files_num,progress,ip,mac,create_date) 
+			 values('#{in.lib_id}','#{in.documentor_id}','#{in.documentor_name}','#{in.foldertemplate_num}','#{in.entryfile_num}','#{in.formsfiles_num}','#{in.files_num}','#{in.progress}','#{in.ip}','#{in.mac}',NOW())
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="datafeedback.select.list" desc="业务数据记录查询">
+		<sql id="feed" alwayarray="true"><![CDATA[
+			SELECT  a.*,d.company_name,c.lib_aliase 
+				FROM fms_progress_summary_report a 
+				LEFT JOIN fms_contractor_documentor d 
+				ON a.documentor_id = d.documentor_id 
+				LEFT JOIN fms_contractor_database c 
+				ON a.lib_id = c.lib_id
+				WHERE    a.documentor_name LIKE '%#{in.documentor_name}%' 
+					 AND d.company_name LIKE '%#{in.company_name}%' 
+					 AND c.lib_aliase LIKE '%#{in.lib_aliase}%' 
+				ORDER BY a.create_date DESC 
+		]]></sql>
+		<out>
+			<stc name="pagehead" value="pagehead" />
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="feed" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	
+
+	<srv id="datafeedback.select.desc" desc="业务数据详细">
+	<quit condition="get('in.lib_id')==null or get('in.lib_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！"/>
+	<sql id="feed" alwayarray="true"><![CDATA[
+			  SELECT  a.*,d.company_name,c.lib_aliase 
+				FROM fms_progress_summary_report a 
+				LEFT JOIN fms_contractor_documentor d 
+				ON a.documentor_id = d.documentor_id 
+				LEFT JOIN fms_contractor_database c 
+				ON a.lib_id = c.lib_id
+				WHERE    a.documentor_name LIKE '%#{in.documentor_name}%' 
+					 AND d.company_name LIKE '%#{in.company_name}%' 
+					 AND c.lib_aliase LIKE '%#{in.lib_aliase}%' 
+					 AND a.lib_id = '#{in.lib_id}'
+				ORDER BY a.create_date DESC 
+	]]></sql>
+	<out>
+	    <stc name="pagehead" value="pagehead" />
+		<stc name="rethead" value="rethead" />
+		<arr name="rows" value="feed" />
+		<fld name="pageSize">pagehead.pagecount</fld>
+		<fld name="page">pagehead.currentpage</fld>
+		<fld name="total">pagehead.totalpage</fld>
+		<fld name="records">pagehead.totalrecord</fld>
+	</out>
+	</srv>
+	
+	<srv id="crop.documentor.statusList" desc="查询指定资料员资料库状态及企业审核状态">
+		<sql id="documentor" condition="get('in.documentor_id')!=null and !get('in.documentor_id').isEmpty()" errorcode="10012" errormsg="获取资料员信息失败"><![CDATA[
+			 SELECT 
+			  a.datebase_status,
+			  b.approval_status 
+			FROM
+			  fms_contractor_documentor a,
+			  fms_contractor_basicinfo b 
+			WHERE a.contractor_id = b.contractor_id AND
+			a.documentor_id ='#{in.documentor_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="documentor" value="documentor" />
+		</out>
+	</srv>
+</service>

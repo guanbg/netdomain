@@ -1,0 +1,41 @@
+@CHARSET "UTF-8";
+
+
+/* jqgrid */
+.ui-jqgrid .ui-jqgrid-bdiv{ 
+	overflow-x: hidden; 
+}
+.grid-tool-bar{
+	padding-top:2px;
+	margin:4px;
+}
+.grid-tool-bar > *{
+	margin:0px 8px;
+}
+.ui-jqgrid-view > .ui-jqgrid-titlebar{
+	background:#fff;
+	color:#000;
+	font-weight:bold;
+}
+.ui-jqgrid .ui-jqgrid-title{
+	padding-top:2px;
+}
+.ui-jqdialog .ui-jqdialog-titlebar-close{
+	top:10%;
+}
+.ui-jqgrid .ui-jqgrid-pager{
+	border-bottom:0px !important;
+	border-top:0px !important;
+}
+.ui-search-table select, .ui-search-table input{
+	padding:0px;
+}
+/*
+.ui-jqgrid .ui-jqgrid-pager{
+	background:#CBD2DA;
+}*/
+/* jqgrid */
+
+.jstree-node div {
+	white-space:normal;
+}

@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<xs:element name="service">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="srv" maxOccurs="unbounded" />
+			</xs:sequence>
+			<xs:attribute name="defaultlogbefore" type="xs:string"
+				use="optional" />
+			<xs:attribute name="defaultlogafter" type="xs:string"
+				use="optional" />
+			<xs:attribute name="datasource" type="xs:string" use="optional"></xs:attribute>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="srv">
+		<xs:complexType>
+			<xs:choice minOccurs="0" maxOccurs="unbounded">
+				<xs:element ref="in" />
+				<xs:element ref="sql" />
+				<xs:element ref="ref" />
+				<xs:element ref="out" />
+				<xs:element ref="log" />
+				<xs:element ref="exp" />
+				<xs:element ref="imp" />
+				<xs:element ref="quit" />
+				<xs:element ref="data" />
+				<xs:element ref="json" />
+			</xs:choice>
+			<xs:attribute name="id" type="xs:string" use="required" />
+			<xs:attribute name="extend" type="xs:string" use="optional" />
+			<xs:attribute name="datasource" type="xs:string"
+				use="optional">
+			</xs:attribute>
+			<xs:attribute name="auth" type="xs:string" use="optional" />
+			<xs:attribute name="scope" use="optional" default="all">
+				<xs:simpleType>
+					<xs:restriction base="xs:string">
+						<xs:enumeration value="all" />
+						<xs:enumeration value="in" />
+						<xs:enumeration value="sql" />
+						<xs:enumeration value="ref" />
+						<xs:enumeration value="out" />
+						<xs:enumeration value="in_out" />
+					</xs:restriction>
+				</xs:simpleType>
+			</xs:attribute>
+			<xs:attribute name="type" use="optional" default="local">
+				<xs:simpleType>
+					<xs:restriction base="xs:string">
+						<xs:enumeration value="local" />
+						<xs:enumeration value="local_report" />
+						<xs:enumeration value="remote_jms" />
+						<xs:enumeration value="remote_http" />
+						<xs:enumeration value="remote_url" />
+						<xs:enumeration value="remote_socket" />
+						<xs:enumeration value="remote_auto" />
+						<xs:enumeration value="webservice" />
+						<xs:enumeration value="abstract" />
+					</xs:restriction>
+				</xs:simpleType>
+			</xs:attribute>
+			<xs:attribute name="processor" type="xs:string"
+				use="optional" />
+			<xs:attribute name="cache" type="xs:string"></xs:attribute>
+			<xs:attribute name="updatecache" type="xs:string"></xs:attribute>
+			<xs:attribute name="desc" type="xs:string" use="optional" />
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="data">
+		<xs:complexType>
+			<xs:choice maxOccurs="unbounded">
+				<xs:element ref="fld" minOccurs="0" maxOccurs="unbounded"/>
+				<xs:element ref="stc" minOccurs="0" maxOccurs="unbounded"/>
+				<xs:element ref="arr" minOccurs="0" maxOccurs="unbounded"/>
+			</xs:choice>
+			<xs:attribute name="id" type="xs:string" use="optional"/>
+			<xs:attribute name="filter" type="xs:string" use="optional"/>
+			<xs:attribute name="clazz" type="xs:string" use="optional"/>
+			<xs:attribute name="json" type="xs:string" use="optional"/>
+			<xs:attribute name="desc" type="xs:string" use="optional"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="in">
+		<xs:complexType>
+			<xs:choice maxOccurs="unbounded">
+				<xs:element ref="fld" minOccurs="0" maxOccurs="unbounded"/>
+				<xs:element ref="stc" minOccurs="0" maxOccurs="unbounded"/>
+				<xs:element ref="arr" minOccurs="0" maxOccurs="unbounded"/>
+			</xs:choice>
+			<xs:attribute name="clazz" type="xs:string" use="optional"/>
+			<xs:attribute name="json" type="xs:string" use="optional"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="sql">
+		<xs:complexType>
+			<xs:simpleContent>
+				<xs:extension base="xs:string">
+					<xs:attribute name="id" type="xs:string"
+						use="optional" />
+					<xs:attribute name="value" type="xs:string"
+						use="optional" />
+					<xs:attribute name="alwayarray" type="xs:boolean"
+						use="optional" />
+					<xs:attribute name="lowercase" type="xs:boolean"
+						use="optional" />
+					<xs:attribute name="generatedkeys" type="xs:string"
+						use="optional" />
+					<xs:attribute name="each" type="xs:string"
+						use="optional" />
+					<xs:attribute name="condition" type="xs:string"
+						use="optional" />
+					<xs:attribute name="errorcode" type="xs:string"
+						use="optional" />
+					<xs:attribute name="errormsg" type="xs:string"
+						use="optional" />
+					<xs:attribute name="cache" type="xs:string">
+					</xs:attribute>
+					<xs:attribute name="updatecache"
+						type="xs:string">
+					</xs:attribute>
+					<xs:attribute name="desc" type="xs:string"
+						use="optional" />
+				</xs:extension>
+			</xs:simpleContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="ref">
+		<xs:complexType>
+			<xs:simpleContent>
+				<xs:extension base="xs:string">
+					<xs:attribute name="id" type="xs:string" use="optional"/>
+					<xs:attribute name="srv" type="xs:string" use="optional"/>
+					<xs:attribute name="clazz" type="xs:string" use="optional"/>
+					<xs:attribute name="each" type="xs:string" use="optional"/>
+					<xs:attribute name="condition" type="xs:string" use="optional"/>
+					<xs:attribute name="errorcode" type="xs:string" use="optional"/>
+					<xs:attribute name="errormsg" type="xs:string" use="optional"/>
+					<xs:attribute name="desc" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:simpleContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="out">
+		<xs:complexType>
+			<xs:choice minOccurs="0" maxOccurs="unbounded">
+				<xs:element ref="fld"/>
+				<xs:element ref="stc"/>
+				<xs:element ref="arr"/>
+			</xs:choice>
+			<xs:attribute name="clazz" type="xs:string" use="optional"/>
+			<xs:attribute name="json" type="xs:string" use="optional"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="fld">
+		<xs:complexType>
+			<xs:simpleContent>
+				<xs:extension base="xs:string">
+					<xs:attribute name="name" type="xs:string" use="required"/>
+					<xs:attribute name="value" type="xs:string" use="optional"/>
+					<xs:attribute name="type" type="xs:string" use="optional"/>
+					<xs:attribute name="format" type="xs:string" use="optional"/>
+					<xs:attribute name="required" type="xs:boolean" use="optional" default="false"/>
+					<xs:attribute name="check" type="xs:string" use="optional"/>
+					<xs:attribute name="desc" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:simpleContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="stc">
+		<xs:complexType>
+			<xs:choice minOccurs="0" maxOccurs="unbounded">
+				<xs:element ref="fld"/>
+				<xs:element ref="stc"/>
+				<xs:element ref="arr"/>
+			</xs:choice>
+			<xs:attribute name="name" type="xs:string" use="required"/>
+			<xs:attribute name="value" type="xs:string" use="optional"/>
+			<xs:attribute name="desc" type="xs:string" use="optional"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="arr">
+		<xs:complexType>
+			<xs:sequence minOccurs="0">
+				<xs:element ref="stc"/>
+			</xs:sequence>
+			<xs:attribute name="name" type="xs:string" use="required"/>
+			<xs:attribute name="value" type="xs:string" use="optional"/>
+			<xs:attribute name="desc" type="xs:string" use="optional"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="log">
+		<xs:complexType>
+			<xs:choice minOccurs="0" maxOccurs="unbounded">
+				<xs:element ref="fld"/>
+				<xs:element ref="row"/>
+			</xs:choice>
+			<xs:attribute name="name" type="xs:string" use="required"/>
+			<xs:attribute name="value" type="xs:string" use="optional"/>
+			<xs:attribute name="before" type="xs:string" use="optional"/>
+			<xs:attribute name="after" type="xs:string" use="optional"/>
+			<xs:attribute name="condition" type="xs:string" use="optional"/>
+			<xs:attribute name="desc" type="xs:string" use="optional"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="row">
+		<xs:complexType>
+			<xs:sequence minOccurs="0" maxOccurs="unbounded">
+				<xs:element ref="fld"/>
+			</xs:sequence>
+			<xs:attribute name="desc" type="xs:string" use="optional"/>
+		</xs:complexType>
+	</xs:element>	
+	<xs:element name="quit">
+		<xs:complexType>
+			<xs:simpleContent>
+				<xs:extension base="xs:string">
+					<xs:attribute name="type" use="optional" default="faild">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="faild"/>
+								<xs:enumeration value="successful"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+					<xs:attribute name="condition" type="xs:string" use="optional"/>
+					<xs:attribute name="errorcode" type="xs:string" use="optional"/>
+					<xs:attribute name="errormsg" type="xs:string" use="optional"/>
+					<xs:attribute name="desc" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:simpleContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="json">
+		<xs:complexType>
+			<xs:simpleContent>
+				<xs:extension base="xs:string">
+					<xs:attribute name="id" type="xs:string" use="optional"/>
+					<xs:attribute name="value" type="xs:string" use="optional"/>
+					<xs:attribute name="desc" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:simpleContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="exp">
+		<xs:complexType>
+			<xs:simpleContent>
+				<xs:extension base="xs:string">
+					<xs:attribute name="id" type="xs:string" use="optional"/>
+					<xs:attribute name="value" type="xs:string" use="optional"/>
+					<xs:attribute name="processor" type="xs:string" use="required"/>
+					<xs:attribute name="fetch" type="xs:int" use="optional" default="20"/>
+					<xs:attribute name="each" type="xs:string" use="optional"/>
+					<xs:attribute name="async" type="xs:boolean" use="optional" default="true"/>
+					<xs:attribute name="condition" type="xs:string" use="optional"/>
+					<xs:attribute name="errorcode" type="xs:string" use="optional"/>
+					<xs:attribute name="errormsg" type="xs:string" use="optional"/>
+					<xs:attribute name="desc" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:simpleContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="imp">
+		<xs:complexType>
+			<xs:simpleContent>
+				<xs:extension base="xs:string">
+					<xs:attribute name="id" type="xs:string" use="optional"/>
+					<xs:attribute name="value" type="xs:string" use="optional"/>
+					<xs:attribute name="processor" type="xs:boolean" use="required"/>
+					<xs:attribute name="fetch" type="xs:int" use="optional"  default="20"/>
+					<xs:attribute name="each" type="xs:string" use="optional"/>
+					<xs:attribute name="async" type="xs:boolean" use="optional" default="true"/>
+					<xs:attribute name="condition" type="xs:string" use="optional"/>
+					<xs:attribute name="errorcode" type="xs:string" use="optional"/>
+					<xs:attribute name="errormsg" type="xs:string" use="optional"/>
+					<xs:attribute name="desc" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:simpleContent>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

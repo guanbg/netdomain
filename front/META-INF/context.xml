@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- 
+<Context path="/web" docBase="D:/web" privileged="true" reloadable="true">
+ -->
+<Context>
+<Resource name="cubism" auth="Container" 
+	type="javax.sql.DataSource" 
+	username="cfms" 
+	password="cfms" 
+	driverClassName="com.mysql.jdbc.Driver" 
+	url="jdbc:mysql://192.168.1.254:3306/metrorcfms?characterEncoding=UTF-8" 
+	maxActive="50" 
+	maxIdle="10" 
+	testOnBorrow="true" 
+	validationQuery="select 1" 
+	timeBetweenEvictionRunsMillis="90000" />
+</Context>

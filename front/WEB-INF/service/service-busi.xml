@@ -1,0 +1,1152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="service.xsd" 
+	defaultlogbefore="sys.log.before" defaultlogafter="sys.log.after">
+	
+	<!-- 业务维护**************************************************************************************************************** -->
+	
+	<srv id="busi.fms_files.add" desc="保存上传文件的信息，公用服务，不能随意修改">
+		<sql id="add" errorcode="10012" errormsg="保存上传文件的信息失败"><![CDATA[
+			 insert into fms_files(file_id,file_identify,file_name,file_type,file_path,file_size,create_user,create_date) 
+			 values('#{in.files.file_id}','#{in.files.file_identify}','#{in.files.file_name}','#{in.files.file_type}','#{in.files.file_path}','#{in.files.file_size}','#{in.syshead.userid}',NOW())
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="busi.library.version.add" desc="发布全量版本">
+		<quit condition="get('in.lib_id')==null or get('in.lib_id').isEmpty()" errorcode="10001" errormsg="档案库信息上送不正确，请重试！"/>
+		<sql id="version" value="{call sp_create_version('#{in.lib_id}','#{in.fs_code}','#{in.fs_name}','#{in.fs_memo}','#{in.disp_order}','#{in.syshead.userid}',${version_id},${ret})}"  errorcode="10012" errormsg="发布全量版本失败"/>
+		<sql id="upd" condition="get('version.version_id')!=null and !get('version.version_id').isEmpty()" errorcode="10013" errormsg="发布全量版本失败"><![CDATA[
+			 UPDATE fms_version SET version_status=#{version.ret} WHERE version_id=#{version.version_id}
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<fld name="versionid">version.version_id</fld>
+			<fld name="ret">version.ret</fld>
+		</out>
+	</srv>
+	
+	<srv id="busi.library.version.pack.add" desc="发布增量版本">
+		<quit condition="get('in.base_vid')==null or get('in.base_vid').isEmpty() or get('in.pack_vid')==null or get('in.pack_vid').isEmpty()" errorcode="10001" errormsg="版本信息上送不正确，请重试！"/>
+		<ref id="buildpath" clazz="com.platform.cubism.util.WebUtils.buildPath('pack')"/>
+		<sql id="version" value="{call sp_create_version_pack('#{in.base_vid}','#{in.pack_vid}','#{in.fs_id_add}','#{in.fs_id_del}','#{buildpath.timepath}','#{in.version_num}','#{in.version_name}','#{in.version_memo}','#{in.syshead.userid}',${pack_id},${ret})}"  errorcode="10002" errormsg="发布增量版本失败"/>
+		
+		<quit condition="get('version.pack_id')==null or get('version.pack_id').isEmpty()" errorcode="10003" errormsg="发布增量版本失败！"/>
+		
+		<ref id="zipfile" clazz="com.platform.cubism.util.WebUtils.zip('#{buildpath.path}','#{in.version_num}-#{in.version_name}-#{version.pack_id}.sd','#{buildpath.timepath}','.*\.sql')"/>
+		<sql id="upd" condition="get('version.pack_id')!=null and !get('version.pack_id').isEmpty()" errorcode="10004" errormsg="发布增量版本失败"><![CDATA[
+			 UPDATE fms_version_pack SET version_file_id='#{zipfile.fileid}',version_status='#{version.ret}' WHERE pack_id='#{version.pack_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<fld name="pack_id">version.pack_id</fld>
+			<fld name="ret">version.ret</fld>
+		</out>
+	</srv>
+	
+	<srv id="busi.library.query" desc="查询版本资料库树">
+		<sql id="library" alwayarray="true" condition="get('in.id')==null or get('in.id').isEmpty()"><![CDATA[
+			select *, case 
+				when id_type=0 then 'libtype' 
+				when id_type=1 then 'library'
+				when id_type=2 then 'profession'
+				when id_type=3 then 'classify'
+				when id_type=4 then 'archives'
+				when id_type=5 and isrelated<=0 then 'files'
+				when id_type=5 and isrelated>0 then 'files2'
+				when id_type=9 then 'common'
+				else 'unknow' 
+				end type
+			from (
+				select a.*, a.fs_id id, a.parent_id pid, concat(IFNULL(a.fs_code,' '),IFNULL(a.fs_name,' '),IFNULL(a.fs_name_code,' ')) text, 
+					(select count(1) from fms_foldertemplate_formsfiles where fs_id=a.fs_id) isrelated,
+					(select count(1) from fms_library where parent_id=a.fs_id) children 
+				from fms_library a 
+				where parent_id is null
+			)x
+			order by disp_order
+		]]></sql>
+		<sql id="library" alwayarray="true" condition="get('in.id')!=null and !get('in.id').isEmpty()"><![CDATA[
+			select *, case 
+				when id_type=0 then 'libtype' 
+				when id_type=1 then 'library'
+				when id_type=2 then 'profession'
+				when id_type=3 then 'classify'
+				when id_type=4 then 'archives'
+				when id_type=5 and isrelated<=0 then 'files'
+				when id_type=5 and isrelated>0 then 'files2'
+				when id_type=9 then 'common'
+				else 'unknow' 
+				end type
+			from (
+				select a.*, a.fs_id id, a.parent_id pid, concat(IFNULL(a.fs_code,' '),IFNULL(a.fs_name,' '),IFNULL(a.fs_name_code,' ')) text, 
+					(select count(1) from fms_foldertemplate_formsfiles where fs_id=a.fs_id) isrelated,
+					(select count(1) from fms_library where parent_id=a.fs_id) children 
+				from fms_library a 
+				where parent_id='#{in.id}'
+			)x
+			order by disp_order
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="library" value="library" />
+		</out>
+	</srv>
+	<srv id="busi.library.parents.query" desc="查询资料库所有上级">
+		<sql id="parents" alwayarray="true" condition="get('in.id')!=null and !get('in.id').isEmpty()" errorcode="10012" errormsg="请重新刷新页面"><![CDATA[
+			SELECT b.fs_id, b.fs_name,b.id_type
+			FROM (
+			    SELECT
+			        @id AS _fs_id,
+			        (SELECT @id := parent_id FROM fms_library WHERE fs_id = _fs_id) AS parent_id,
+			        @lvl := @lvl + 1 AS lvl
+			    FROM
+			        (SELECT @id := '#{in.id}', @lvl := 0) vars, fms_library h
+			    WHERE @id is not null
+			) a JOIN fms_library b ON a._fs_id = b.fs_id
+			ORDER BY a.lvl DESC
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="parents" />
+		</out>
+	</srv>
+	
+	<srv id="busi.library.add" desc="新增版本资料库信息">
+		<ref id="fs_id" clazz="com.platform.cubism.util.StringUtils.getUUID()"/>
+		<sql id="add" errorcode="10012" errormsg="新增版本资料库信息失败"><![CDATA[
+			 insert into fms_library(*,fs_id,create_user,create_date) values(*,'#{in.fs_id}','#{in.syshead.userid}',NOW())
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<fld name="id">in.fs_id</fld>
+		</out>
+	</srv>
+	<srv id="busi.library.update" desc="修改版本资料库信息">
+		<quit condition="get('in.fs_id')==null or get('in.fs_id').isEmpty()" errorcode="10011" errormsg="提交信息错误，无法修改！"/>
+		<sql id="upd" errorcode="10012" errormsg="修改版本资料库信息失败"><![CDATA[
+			 update fms_library set *,last_user='#{in.syshead.userid}',last_date=NOW() where fs_id='#{in.fs_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	<srv id="busi.library.delete" desc="删除版本资料库信息">
+		<quit condition="get('in.fs_id')==null or get('in.fs_id').isEmpty()" errorcode="10011" errormsg="提交信息错误，无法删除！"/>
+		<sql id="del" errorcode="10012" errormsg="新增版本资料库信息失败"><![CDATA[
+			 delete from fms_library where fs_id='#{in.fs_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	<srv id="busi.library.copy" desc="复制版本资料库信息">
+		<quit condition="get('in.fs_id')==null or get('in.fs_id').isEmpty()" errorcode="10011" errormsg="提交信息错误，无法复制！"/>
+		<sql id="copy" value="{call sp_copy_library('#{in.fs_id}','#{in.parent_id}',${status})}"  errorcode="10012" errormsg="复制版本资料库信息失败"/>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<fld name="copystatus">copy.status</fld>
+		</out>
+	</srv>
+	<srv id="busi.library.save" desc="批量修改资料库信息">
+		<sql id="add" condition="get('in.add')!=null and !get('in.add').isEmpty()" errorcode="10011" errormsg="新增资料库信息失败"><![CDATA[
+			 insert into fms_library(fs_id,parent_id,fs_code,fs_name,fs_name_code,id_type,disp_order,fs_memo,create_user,create_date) 
+			 values('#{in.add.fs_id}','#{in.add.parent_id}','#{in.add.fs_code}','#{in.add.fs_name}','#{in.add.fs_name_code}','#{in.add.id_type}','#{in.upd.disp_order}','#{in.upd.fs_memo}','#{in.syshead.userid}',NOW())
+		]]></sql>
+		<sql id="upd" condition="get('in.upd')!=null and !get('in.upd').isEmpty()" errorcode="10012" errormsg="修改资料库信息失败"><![CDATA[
+			 update fms_library set 
+			 	fs_code='#{in.upd.fs_code}',
+			 	fs_name='#{in.upd.fs_name}',
+			 	fs_name_code='#{in.upd.fs_name_code}',
+			 	disp_order='#{in.upd.disp_order}',
+			 	fs_memo='?{in.upd.fs_memo}',
+			 	last_user='#{in.syshead.userid}',
+			 	last_date=NOW() 
+			 where fs_id='#{in.upd.fs_id}'
+		]]></sql>
+		<sql id="del" condition="get('in.del')!=null and !get('in.del').isEmpty()" errorcode="10012" errormsg="删除资料库信息失败"><![CDATA[
+			 delete from fms_library where fs_id='#{in.del.id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="busi.formsfiles.subversion.query" desc="查询全部案卷表格子版本信息">
+		<sql id="subversion" alwayarray="true" condition="get('in.tb_id')!=null and !get('in.tb_id').isEmpty()"><![CDATA[
+			 SELECT A.*,(SELECT COUNT(1) FROM fms_foldertemplate_formsfiles WHERE fs_id='#{in.fs_id}' AND tb_id=A.tb_id) isrelated 
+			 FROM fms_formsfiles A
+			 WHERE FIND_IN_SET(A.tb_id,fn_getChildren('#{in.tb_id}'))>0  
+			 ORDER BY A.last_date DESC
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="subversion" value="subversion" />
+		</out>
+	</srv>
+	
+	<srv id="busi.formsfiles.query" desc="查询全部案卷表格信息">
+		<sql id="all" alwayarray="true" condition="get('in.isrelated')==null or get('in.isrelated').isEmpty()"><![CDATA[
+			 SELECT A.*,B.dir_name,(SELECT COUNT(1) FROM fms_formsfiles WHERE parent_id=A.tb_id) haschild,
+			 	(SELECT COUNT(1) FROM fms_foldertemplate_formsfiles WHERE FIND_IN_SET(tb_id,fn_getChildren(A.tb_id))>0) isrelated 
+			 FROM fms_formsfiles A LEFT OUTER JOIN fms_formsfiles_dir B ON A.dir_id=B.dir_id 
+			 WHERE A.parent_id IS NULL AND A.dir_id='#{in.dir_id}' AND 
+			 	B.dir_name LIKE '%#{in.dir_name}%' AND 
+			 	A.document_number LIKE '%#{in.document_number}%' AND 
+				A.fnsort_table LIKE '%#{in.fnsort_table}%' AND 
+				A.document_no LIKE '%#{in.document_no}%' AND 
+				A.file_title LIKE '%#{in.file_title}%' AND 
+				A.retention_period LIKE '%#{in.retention_period}%' AND 
+				A.ssecrecy_level LIKE '%#{in.ssecrecy_level}%' AND 
+				A.paper_size LIKE '%#{in.paper_size}%' AND 
+				A.total_pages >= '#{in.total_pages.start}' AND A.total_pages <= '#{in.total_pages.end}' 
+			 ORDER BY A.document_number,A.document_no, A.tb_id DESC
+		]]></sql>
+		<sql id="all" alwayarray="true" condition="get('in.isrelated')!=null and !get('in.isrelated').isEmpty() and get('in.isrelated').getIntValue() &lt;= 0"><![CDATA[
+			 SELECT A.* 
+			 FROM fms_formsfiles A LEFT OUTER JOIN fms_formsfiles_dir B ON A.dir_id=B.dir_id 
+			 WHERE A.dir_id='#{in.dir_id}' AND 
+			 	B.dir_name LIKE '%#{in.dir_name}%' AND 
+			 	A.document_number LIKE '%#{in.document_number}%' AND 
+				A.fnsort_table LIKE '%#{in.fnsort_table}%' AND 
+				A.document_no LIKE '%#{in.document_no}%' AND 
+				A.file_title LIKE '%#{in.file_title}%' AND 
+				A.retention_period LIKE '%#{in.retention_period}%' AND 
+				A.ssecrecy_level LIKE '%#{in.ssecrecy_level}%' AND 
+				A.paper_size LIKE '%#{in.paper_size}%' AND 
+				A.total_pages >= '#{in.total_pages.start}' AND A.total_pages <= '#{in.total_pages.end}' AND 
+				A.tb_id NOT IN (SELECT tb_id FROM fms_foldertemplate_formsfiles)
+			 ORDER BY A.document_number,A.document_no, A.tb_id DESC
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="all" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	
+	<srv id="busi.formsfiles.related.query" desc="查询已关联的案卷表格信息">
+		<sql id="related" alwayarray="true" condition="get('in.fs_id')!=null and !get('in.fs_id').isEmpty()"><![CDATA[
+			 SELECT A.*,C.fs_code,D.dir_name  
+			 FROM fms_formsfiles A 
+			 	INNER JOIN fms_foldertemplate_formsfiles B ON A.tb_id=B.tb_id 
+			 	INNER JOIN fms_library C ON B.fs_id=C.fs_id 
+			 	LEFT OUTER JOIN fms_formsfiles_dir D ON A.dir_id=D.dir_id 
+			 WHERE (C.fs_id='#{in.fs_id}' OR C.fs_id IN (SELECT fs_id FROM fms_library WHERE parent_id='#{in.fs_id}')) AND 
+			 	A.document_number LIKE '%#{in.document_number}%' AND 
+				A.fnsort_table LIKE '%#{in.fnsort_table}%' AND 
+				A.document_no LIKE '%#{in.document_no}%' AND 
+				A.file_title LIKE '%#{in.file_title}%' AND 
+				A.retention_period LIKE '%#{in.retention_period}%' AND 
+				A.ssecrecy_level LIKE '%#{in.ssecrecy_level}%' AND 
+				A.paper_size LIKE '%#{in.paper_size}%' AND 
+				A.total_pages >= '#{in.total_pages.start}' AND A.total_pages <= '#{in.total_pages.end}' 
+			 ORDER BY A.fnsort_table, A.document_number, A.document_no, A.tb_id DESC
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="related" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	
+	<srv id="busi.formsfiles.waiting.query" desc="查询可关联的案卷表格信息">
+		<sql id="waiting" alwayarray="true" condition="get('in.fs_id')!=null and !get('in.fs_id').isEmpty()"><![CDATA[
+			 SELECT A.*,B.dir_name,(SELECT COUNT(1) FROM fms_foldertemplate_formsfiles WHERE fs_id='#{in.fs_id}' AND tb_id=A.tb_id) isrelated,
+			 	(SELECT COUNT(1) FROM fms_foldertemplate_formsfiles WHERE fs_id='#{in.fs_id}' AND FIND_IN_SET(tb_id,fn_getChildren(A.tb_id))>0) ischildrelated,
+			 	(SELECT COUNT(1) FROM fms_formsfiles WHERE parent_id=A.tb_id) haschild 
+			 FROM fms_formsfiles A LEFT OUTER JOIN fms_formsfiles_dir B ON A.dir_id=B.dir_id 
+			 WHERE A.parent_id IS NULL AND A.document_number LIKE '%#{in.document_number}%' AND 
+				 A.fnsort_table LIKE '%#{in.fnsort_table}%' AND 
+				 A.document_no LIKE '%#{in.document_no}%' AND 
+				 A.tb_version LIKE '%#{in.tb_version}%' AND 
+				 A.file_title LIKE '%#{in.file_title}%' AND 
+				 A.retention_period LIKE '%#{in.retention_period}%' AND 
+				 A.ssecrecy_level LIKE '%#{in.ssecrecy_level}%' AND 
+				 A.paper_size LIKE '%#{in.paper_size}%' AND 
+				 A.total_pages >= '#{in.total_pages.start}' AND A.total_pages <= '#{in.total_pages.end}' 
+			 order by A.document_number,A.document_no, A.tb_id DESC
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="waiting" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	
+	<srv id="busi.version.formsfiles.get" desc="查询指定案卷表格信息">
+		<sql id="formsfiles" condition="get('in.tb_id')!=null and !get('in.tb_id').isEmpty()"><![CDATA[
+			 SELECT A.*,D.dir_name, (SELECT COUNT(1) FROM fms_foldertemplate_formsfiles WHERE tb_id='#{in.tb_id}') isrelated,
+			 	B.file_name tmpl_file_name, B.file_identify tmpl_file_identify, 
+			 	C.file_name example_file_name, C.file_identify example_file_identify 
+			 FROM fms_formsfiles_#{in.version_id} A 
+			 	LEFT OUTER JOIN fms_files B ON A.tmpl_file_id=B.file_id 
+			 	LEFT OUTER JOIN fms_files C ON A.example_file_id=C.file_id 
+			 	LEFT OUTER JOIN fms_formsfiles_dir D ON A.dir_id=D.dir_id 
+			 WHERE A.tb_id = '#{in.tb_id}'
+		]]></sql>
+		<sql id="formsfiles" condition="get('in.fs_id')!=null and !get('in.fs_id').isEmpty()"><![CDATA[
+			 SELECT A.*,E.dir_name, 1 isrelated,
+			 	C.file_name tmpl_file_name, C.file_identify tmpl_file_identify, 
+			 	D.file_name example_file_name, D.file_identify example_file_identify
+			 FROM fms_formsfiles_#{in.version_id} A 
+			 	INNER JOIN fms_foldertemplate_formsfiles_#{in.version_id} B ON A.tb_id=B.tb_id
+			 	LEFT OUTER JOIN fms_files_#{in.version_id} C ON A.tmpl_file_id=C.file_id 
+			 	LEFT OUTER JOIN fms_files_#{in.version_id} D ON A.example_file_id=D.file_id 
+			 	LEFT OUTER JOIN fms_formsfiles_dir_#{in.version_id} E ON A.dir_id=E.dir_id
+			 WHERE B.fs_id = '#{in.fs_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="formsfiles" value="formsfiles" />
+		</out>
+	</srv>
+	<srv id="busi.formsfiles.get" desc="查询指定案卷表格信息">
+		<sql id="formsfiles" condition="get('in.tb_id')!=null and !get('in.tb_id').isEmpty()"><![CDATA[
+			 SELECT A.*,D.dir_name, (SELECT COUNT(1) FROM fms_foldertemplate_formsfiles WHERE tb_id='#{in.tb_id}') isrelated,
+			 	B.file_name tmpl_file_name, B.file_identify tmpl_file_identify, 
+			 	C.file_name example_file_name, C.file_identify example_file_identify 
+			 FROM fms_formsfiles A 
+			 	LEFT OUTER JOIN fms_files B ON A.tmpl_file_id=B.file_id 
+			 	LEFT OUTER JOIN fms_files C ON A.example_file_id=C.file_id 
+			 	LEFT OUTER JOIN fms_formsfiles_dir D ON A.dir_id=D.dir_id 
+			 WHERE A.tb_id = '#{in.tb_id}'
+		]]></sql>
+		<sql id="formsfiles" condition="get('in.fs_id')!=null and !get('in.fs_id').isEmpty()"><![CDATA[
+			 SELECT A.*,E.dir_name, 1 isrelated,
+			 	C.file_name tmpl_file_name, C.file_identify tmpl_file_identify, 
+			 	D.file_name example_file_name, D.file_identify example_file_identify
+			 FROM fms_formsfiles A INNER JOIN fms_foldertemplate_formsfiles B ON A.tb_id=B.tb_id
+			 	LEFT OUTER JOIN fms_files C ON A.tmpl_file_id=C.file_id 
+			 	LEFT OUTER JOIN fms_files D ON A.example_file_id=D.file_id 
+			 	LEFT OUTER JOIN fms_formsfiles_dir E ON A.dir_id=E.dir_id
+			 WHERE B.fs_id = '#{in.fs_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="formsfiles" value="formsfiles" />
+		</out>
+	</srv>
+	<srv id="busi.foldertemplate_formsfiles.add" desc="关联案卷表格">
+		<quit condition="get('in.tb_id')==null or get('in.tb_id').isEmpty() or get('in.fs_id')==null or get('in.fs_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！"/>
+		<sql id="add" errorcode="10012" errormsg="关联案卷表格失败"><![CDATA[
+			 insert into fms_foldertemplate_formsfiles(tb_id,fs_id,tb_sn) 
+			 values('#{in.tb_id}','#{in.fs_id}',(select disp_order from fms_library where fs_id='#{in.fs_id}'))
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	<srv id="busi.library.related.delete" desc="解除文件关联">
+		<quit condition="get('in.fs_id')==null or get('in.fs_id').isEmpty()" errorcode="10011" errormsg="提交信息错误，无法删除！"/>
+		<sql id="del" errorcode="10012" errormsg="解除文件关联失败"><![CDATA[
+			 delete from fms_foldertemplate_formsfiles where fs_id='#{in.fs_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	<srv id="busi.foldertemplate_formsfiles.delete" desc="解除案卷表格关联">
+		<quit condition="get('in.tb_id')==null or get('in.tb_id').isEmpty() or get('in.fs_id')==null or get('in.fs_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！"/>
+		<sql id="del" errorcode="10011" errormsg="解除案卷表格关联失败"><![CDATA[
+			 DELETE FROM fms_foldertemplate_formsfiles 
+			 WHERE tb_id='#{in.tb_id}' AND (fs_id='#{in.fs_id}' OR fs_id IN (SELECT fs_id FROM fms_library WHERE parent_id='#{in.fs_id}'))
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="busi.formsfiles.version.add" desc="新增案卷表格版本">
+		<quit condition="get('in.tb_id')==null or get('in.tb_id').isEmpty()" errorcode="10011" errormsg="提交信息错误！"/>
+	
+		<ref id="tmplid" clazz="com.platform.cubism.util.StringUtils.getUUID()"/>
+		<sql id="tmpl" alwayarray="true" condition="get('in.tmpl_file_id')!=null and !get('in.tmpl_file_id').isEmpty()"><![CDATA[
+			insert into fms_files(file_id,file_size,file_name,file_path,file_identify,file_type,two_dimension_code,create_user,create_date,last_date,last_user,file_status) 
+			select '#{in.tmplid}' file_id,file_size,file_name,file_path,file_identify,file_type,two_dimension_code,create_user,create_date,NOW() last_date,'#{in.syshead.userid}' last_user,file_status 
+			from fms_files 
+			where IFNULL(file_status,0)=1 and file_id='#{in.tmpl_file_id}'
+		]]></sql>
+		<ref id="setvalue" condition="get('in').remove('tmplid') and get('in.tmpl_file_id')!=null and !get('in.tmpl_file_id').isEmpty() and get('tmpl').getIntValue() &gt; 0 and get('in.tmpl_file_id').setValue(get('tmplid.tmplid').getValue()).isEmpty()"/>
+
+		<ref id="examid" clazz="com.platform.cubism.util.StringUtils.getUUID()"/>
+		<sql id="exam" alwayarray="true" condition="get('in.example_file_id')!=null and !get('in.example_file_id').isEmpty()"><![CDATA[
+			insert into fms_files(file_id,file_size,file_name,file_path,file_identify,file_type,two_dimension_code,create_user,create_date,last_date,last_user,file_status) 
+			select '#{in.examid}' file_id,file_size,file_name,file_path,file_identify,file_type,two_dimension_code,create_user,create_date,NOW() last_date,'#{in.syshead.userid}' last_user,file_status 
+			from fms_files 
+			where IFNULL(file_status,0)=1 and file_id='#{in.example_file_id}'
+		]]></sql>
+		<ref id="setvalue2" condition="get('in').remove('examid') and get('in.example_file_id')!=null and !get('in.example_file_id').isEmpty() and get('exam').getIntValue() &gt; 0 and get('in.example_file_id').setValue(get('examid.examid').getValue()).isEmpty()"/>
+		
+		<ref id="uuid" clazz="com.platform.cubism.util.StringUtils.getUUID()"/>
+		<sql id="add" errorcode="10012" errormsg="新增案卷表格信息失败"><![CDATA[
+			 insert into fms_formsfiles(*,parent_id,tb_id,create_user,create_date) values(*,NULL,'#{in.uuid}','#{in.syshead.userid}',NOW())
+		]]></sql>
+		<sql id="upd" errorcode="10013" errormsg="案卷表格版本关联失败"><![CDATA[
+			 update fms_formsfiles set parent_id='#{in.uuid}' where tb_id='#{in.tb_id}'
+		]]></sql>
+		<sql id="upd2" errorcode="10014" errormsg="案卷表格文件信息关联失败"><![CDATA[
+			 update fms_files set file_status=1 where file_id in('#{in.tmpl_file_id}','#{in.example_file_id}')
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<fld name="tb_id">in.uuid</fld>
+		</out>
+	</srv>
+	
+	<srv id="busi.formsfiles.library.add" desc="档案库页面新增案卷表格信息">
+		<ref id="tb_id" clazz="com.platform.cubism.util.StringUtils.getUUID()"/>
+		<sql id="add" errorcode="10011" errormsg="新增案卷表格信息失败"><![CDATA[
+			 insert into fms_formsfiles(document_number,document_no,tb_version,fnsort_table,total_pages,file_title,tb_id,create_user,create_date) 
+			 values('#{in.document_number}','#{in.document_no}','#{in.tb_version}','#{in.fnsort_table}','#{in.total_pages}','#{in.file_title}','#{in.tb_id}','#{in.syshead.userid}',NOW())
+		]]></sql>
+		<sql id="add2" errorcode="10012" errormsg="案卷表格关联失败"><![CDATA[
+			 insert into fms_foldertemplate_formsfiles(fs_id,tb_id,tb_sn)
+			 values('#{in.fs_id}','#{in.tb_id}','#{in.fnsort_table}')
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<fld name="id">in.tb_id</fld>
+		</out>
+	</srv>
+	<srv id="busi.formsfiles.add" desc="新增案卷表格信息">
+		<ref id="tb_id" clazz="com.platform.cubism.util.StringUtils.getUUID()"/>
+		<sql id="add" errorcode="10011" errormsg="新增案卷表格信息失败"><![CDATA[
+			 insert into fms_formsfiles(*,tb_id,create_user,create_date) values(*,'#{in.tb_id}','#{in.syshead.userid}',NOW())
+		]]></sql>
+		<sql id="upd" errorcode="10012" errormsg="案卷表格文件信息关联失败"><![CDATA[
+			 update fms_files set file_status=1 where file_id in('#{in.tmpl_file_id}','#{in.example_file_id}')
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<fld name="tb_id">in.tb_id</fld>
+		</out>
+	</srv>
+	<srv id="busi.formsfiles.update" desc="修改案卷表格信息">
+		<quit condition="get('in.tb_id')==null or get('in.tb_id').isEmpty()" errorcode="10011" errormsg="提交信息错误，无法修改！"/>
+		<sql id="upd" errorcode="10012" errormsg="案卷表格文件信息关联失败"><![CDATA[
+			update fms_files set file_status=0 
+			where file_id in (select tmpl_file_id from fms_formsfiles where tb_id='#{in.tb_id}') or 
+				file_id in (select example_file_id from fms_formsfiles where tb_id='#{in.tb_id}')
+		]]></sql>
+		<sql id="upd1" errorcode="10013" errormsg="修改案卷表格信息失败"><![CDATA[
+			update fms_formsfiles set *,
+				last_user='#{in.syshead.userid}',
+				last_date=NOW()
+			where tb_id='#{in.tb_id}'
+		]]></sql>
+		<sql id="upd2" errorcode="10014" errormsg="案卷表格文件信息关联失败"><![CDATA[
+			 update fms_files set file_status=1 where file_id in('#{in.tmpl_file_id}','#{in.example_file_id}')
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	<srv id="busi.formsfilesdir.update" desc="修改案卷表格分类信息">
+		<quit condition="get('in.tb_id')==null or get('in.tb_id').isEmpty()" errorcode="10011" errormsg="提交信息错误，无法修改！"/>
+		<sql id="upd1" errorcode="10013" errormsg="设置案卷表格分类失败"><![CDATA[
+			update fms_formsfiles set 
+				dir_id='#{in.dir_id}',
+				last_user='#{in.syshead.userid}',
+				last_date=NOW()
+			where tb_id in ('#{in.tb_id}')
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	<srv id="busi.formsfiles.delete" desc="删除案卷表格信息">
+		<quit condition="get('in.tb_id')==null or get('in.tb_id').isEmpty()" errorcode="10011" errormsg="提交信息错误，无法删除！"/>
+		<sql id="upd" errorcode="10012" errormsg="删除文件信息失败"><![CDATA[
+			update fms_files set file_status=0 
+			where file_id in (select tmpl_file_id from fms_formsfiles where tb_id='#{in.tb_id}') or 
+				file_id in (select example_file_id from fms_formsfiles where tb_id='#{in.tb_id}') or 
+				file_id in (select elect_file_id from fms_formsfile_attr where tb_id='#{in.tb_id}') or 
+				file_id in (select scan_file_id from fms_formsfile_attr where tb_id='#{in.tb_id}')
+		]]></sql>
+		<sql id="upd2" errorcode="10013" errormsg="修改案卷表格关联信息失败"><![CDATA[
+			UPDATE fms_formsfiles A INNER JOIN fms_formsfiles B ON A.parent_id=B.tb_id 
+			SET A.parent_id=B.parent_id 
+			WHERE A.parent_id='#{in.tb_id}'
+		]]></sql>
+		<sql id="del" errorcode="10014" errormsg="删除案卷表格关联信息失败"><![CDATA[
+			delete from fms_foldertemplate_formsfiles where tb_id='#{in.tb_id}'
+		]]></sql>
+		<sql id="del2" errorcode="10015" errormsg="删除案卷表格属性信息失败"><![CDATA[
+			delete from fms_formsfile_attr where tb_id='#{in.tb_id}'
+		]]></sql>
+		<sql id="del3" errorcode="10016" errormsg="删除案卷表格信息失败"><![CDATA[
+			delete from fms_formsfiles where tb_id='#{in.tb_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<!-- 系统文件导入处理**************************************************************************************************************** -->
+
+	<srv id="sys.import.status.get" desc="查询导入状态信息">
+		<sql id="status" alwayarray="false" condition="get('in.batch_number')!=null and !get('in.batch_number').isEmpty()"><![CDATA[
+			SELECT state_code,state_desc 
+			FROM sys_import_status 
+			WHERE batch_number=?{in.batch_number}
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="status" value="status"/>
+		</out>
+	</srv>
+	
+	<srv id="sys.import.status.save" desc="保存导入状态信息">
+		<quit condition="get('in.batch_number')==null or get('in.batch_number').isEmpty()" errorcode="10011" errormsg="请求数据不正确,请重试"/>
+		
+		<sql id="status" alwayarray="false" errorcode="10012" errormsg="查询状态失败"><![CDATA[
+			SELECT COUNT(1) cnt FROM sys_import_status WHERE batch_number=?{in.batch_number}
+		]]></sql>
+		<sql id="upd" condition="get('status.cnt')!=null and !get('status.cnt').isEmpty() and get('status.cnt').getIntValue() &gt; 0" errorcode="10013" errormsg="修改状态失败"><![CDATA[
+			UPDATE sys_import_status SET state_code=?{in.state_code},state_desc=?{in.state_desc},update_time=NOW() WHERE batch_number=?{in.batch_number}
+		]]></sql>
+		<sql id="ins" condition="get('status.cnt')!=null and !get('status.cnt').isEmpty() and get('status.cnt').getIntValue() &lt;= 0" errorcode="10014" errormsg="新增状态信息失败"><![CDATA[
+			INSERT INTO sys_import_status(batch_number,fileid,filename,state_code,state_desc,user_id,update_time)
+			VALUES(?{in.batch_number},?{in.fileid},?{in.filename},?{in.state_code},?{in.state_desc},?{in.user_id},NOW())
+		]]></sql>
+		
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="busi.archivefiles.import" desc="导入卷内文件条目信息">
+		<quit condition="get('in.fs_id')==null or get('in.fs_id').isEmpty()" errorcode="10011" errormsg="请求数据不正确,请重试"/>
+		
+		<sql id="init"  condition="get('in.isinit')!=null and get('in.isinit').getIntValue()==1" errorcode="10012" errormsg="初始化导入 数据失败，操作已撤销"><![CDATA[
+			DELETE FROM fms_library_import WHERE batch_number='#{in.batch_number}'
+		]]></sql>
+		
+		<!-- A编号、B题名、C顺序、D备注 -->
+		<sql id="ins" condition="get('in.excel')!=null and !get('in.excel').isEmpty()" errorcode="10013" errormsg="插入数据失败，操作已撤销"><![CDATA[
+			INSERT INTO  fms_library_import(batch_number,fs_ID,parent_ID,ID_type,fs_code,fs_name,disp_order,fs_memo)
+			VALUES('#{in.batch_number}',?{in.excel.rowid},(SELECT fs_ID FROM fms_library WHERE parent_ID='#{in.fs_id}' AND fs_code='#{in.sheetname}'),'5',?{in.excel.A},?{in.excel.B},?{in.excel.C},?{in.excel.D})
+		]]></sql>
+		
+		<sql id="end" condition="get('in.isend')!=null and get('in.isend').getIntValue()==1" errorcode="10014" errormsg="提交已导入的数据失败，操作已撤销"><![CDATA[
+			INSERT INTO fms_library(fs_ID,parent_ID,ID_type,fs_code,fs_name,disp_order,fs_memo,create_user,create_date)
+			SELECT fs_ID,parent_ID,ID_type,fs_code,fs_name,disp_order,fs_memo,'#{in.syshead.userid}' create_user,NOW() create_date
+			FROM fms_library_import
+			WHERE batch_number='#{in.batch_number}' AND parent_ID IS NOT NULL
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	<srv id="busi.archive.files.import" desc="导入指定案卷的卷内文件条目信息">
+		<quit condition="get('in.fs_id')==null or get('in.fs_id').isEmpty()" errorcode="10011" errormsg="请求数据不正确,请重试"/>
+		
+		<sql id="init"  condition="get('in.isinit')!=null and get('in.isinit').getIntValue()==1" errorcode="10012" errormsg="初始化导入 数据失败，操作已撤销"><![CDATA[
+			DELETE FROM fms_library_import WHERE batch_number='#{in.batch_number}'
+		]]></sql>
+		
+		<!-- A编号、B题名、C顺序、D备注 -->
+		<sql id="ins" condition="get('in.excel')!=null and !get('in.excel').isEmpty()" errorcode="10013" errormsg="插入数据失败，操作已撤销"><![CDATA[
+			INSERT INTO  fms_library_import(batch_number,fs_ID,parent_ID,ID_type,fs_code,fs_name,disp_order,fs_memo)
+			VALUES('#{in.batch_number}',?{in.excel.rowid},(SELECT fs_ID FROM fms_library WHERE fs_ID='#{in.fs_id}' AND fs_code='#{in.sheetname}'),'5',?{in.excel.A},?{in.excel.B},?{in.excel.C},?{in.excel.D})
+		]]></sql>
+		
+		<sql id="end" condition="get('in.isend')!=null and get('in.isend').getIntValue()==1" errorcode="10014" errormsg="提交已导入的数据失败，操作已撤销"><![CDATA[
+			INSERT INTO fms_library(fs_ID,parent_ID,ID_type,fs_code,fs_name,disp_order,fs_memo,create_user,create_date)
+			SELECT fs_ID,parent_ID,ID_type,fs_code,fs_name,disp_order,fs_memo,'#{in.syshead.userid}' create_user,NOW() create_date
+			FROM fms_library_import
+			WHERE batch_number='#{in.batch_number}' AND parent_ID IS NOT NULL
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<!-- 版本管理**************************************************************************************************************** -->
+	<srv id="busi.version.current.update" desc="更改当前版本是否为默认版本">
+		<quit condition="get('in.version_id')==null or get('in.version_id').isEmpty()" errorcode="10011" errormsg="请求数据不正确,请重试"/>
+		
+		<sql id="upd" errorcode="10012" errormsg="修改默认版本信息失败"><![CDATA[
+			UPDATE fms_version SET is_current='#{in.is_current}',last_user='#{in.syshead.userid}',last_date=NOW() WHERE version_id=?{in.version_id}
+		]]></sql>
+		
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	<srv id="busi.version.update" desc="修改当前版本信息">
+		<quit condition="get('in.version_id')==null or get('in.version_id').isEmpty()" errorcode="10011" errormsg="请求数据不正确,请重试"/>
+		<sql id="exist" value="select * from fms_version where version_num='#{in.version_num}' and version_id!='#{in.version_id}'" />
+		<quit condition="get('exist')!=null and !get('exist').isEmpty()" errorcode="10012" errormsg="版本号已存在，请重新输入"/>
+		
+		<sql id="upd" errorcode="10013" errormsg="修改默认版本信息失败"><![CDATA[
+			UPDATE fms_version SET 
+				param_version_id='#{in.param_version_id}',
+				version_num='#{in.version_num}',
+				version_name='#{in.version_name}',
+				version_memo='#{in.version_memo}',
+				disp_order='#{in.disp_order}',
+				last_user='#{in.syshead.userid}',
+				last_date=NOW() 
+			WHERE version_id=?{in.version_id}
+		]]></sql>
+		
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	<srv id="busi.version.delete" desc="删除版本">
+		<quit condition="get('in.version_id')==null or get('in.version_id').isEmpty()" errorcode="10011" errormsg="请求数据不正确,请重试"/>
+		
+		<sql id="del" errorcode="10012" errormsg="删除版本信息失败"><![CDATA[
+			DELETE FROM fms_version WHERE version_id='#{in.version_id}'
+		]]></sql>
+		
+		<sql id="fms_files" errorcode="10013" errormsg="删除文件信息失败"><![CDATA[
+			drop table if exists fms_files_#{in.version_id}
+		]]></sql>
+		<sql id="fms_formsfiles_dir" errorcode="10013" errormsg="删除文件目录信息失败"><![CDATA[
+			drop table if exists fms_formsfiles_dir_#{in.version_id}
+		]]></sql>
+		<sql id="fms_foldertemplate_formsfiles" errorcode="10014" errormsg="删除案卷属性信息失败"><![CDATA[
+			drop table if exists fms_foldertemplate_formsfiles_#{in.version_id}
+		]]></sql>
+		<sql id="fms_formsfiles" errorcode="10015" errormsg="删除案卷信息失败"><![CDATA[
+			drop table if exists fms_formsfiles_#{in.version_id}
+		]]></sql>
+		<sql id="fms_foldertemplate" errorcode="10016" errormsg="删除案卷关联信息失败"><![CDATA[
+			drop table if exists fms_foldertemplate_#{in.version_id}
+		]]></sql>
+		<sql id="fms_library" errorcode="10017" errormsg="删除版本树信息失败"><![CDATA[
+			drop table if exists fms_library_#{in.version_id}
+		]]></sql>
+		
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	<srv id="busi.version.get" desc="查询指定版本的信息">
+		<quit condition="get('in.version_id')==null or get('in.version_id').isEmpty()" errorcode="10011" errormsg="请求数据不正确,请重试"/>
+		
+		<sql id="version" errorcode="10012" errormsg="查询版本信息失败"><![CDATA[
+			SELECT * FROM fms_version WHERE version_id=?{in.version_id}
+		]]></sql>
+		
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="version" value="version" />
+		</out>
+	</srv>
+	<srv id="busi.version.pack.get" desc="查询指定增量版本的信息">
+		<quit condition="get('in.pack_id')==null or get('in.pack_id').isEmpty()" errorcode="10011" errormsg="请求数据不正确,请重试"/>
+		
+		<sql id="pack" errorcode="10012" errormsg="查询增量版本信息失败"><![CDATA[
+			SELECT * FROM fms_version_pack WHERE pack_id=?{in.pack_id}
+		]]></sql>
+		
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="pack" value="pack" />
+		</out>
+	</srv>
+	<srv id="busi.version.query" desc="查询版本信息列表">
+		<sql id="pack_version" alwayarray="true"><![CDATA[
+			SELECT A.*  
+			FROM fms_version_pack A 
+			WHERE A.version_id='#{version.version_id}' 
+			ORDER BY A.pack_id 
+		]]></sql>
+		<sql id="version" alwayarray="true" each="pack_version"><![CDATA[
+			 SELECT A.*, CONCAT(B.version_num,'-',B.version_name) config_version, C.username create_user_name, D.username last_user_name 
+			 FROM fms_version A 
+			 	LEFT OUTER JOIN fms_config_version B ON A.param_version_id=B.param_version_id 
+			 	LEFT OUTER JOIN sys_users C ON A.create_user=C.id 
+			 	LEFT OUTER JOIN sys_users D ON A.last_user=D.id
+			 WHERE A.version_num like '%#{in.version_num}%' AND 
+				 A.version_name like '%#{in.version_name}%' AND 
+				 A.version_memo like '%#{in.version_memo}%' AND 
+				 A.is_current = '#{in.is_current}' AND 
+				 A.version_status = '#{in.version_status}' AND 
+				 A.create_date >= STR_TO_DATE('#{in.create_date.start}','%Y-%c-%d %H:%i') AND A.create_date <= STR_TO_DATE('#{in.create_date.end}','%Y-%c-%d %H:%i') AND  
+				 A.last_date >= STR_TO_DATE('#{in.last_date.start}','%Y-%c-%d %H:%i') AND A.last_date <= STR_TO_DATE('#{in.last_date.end}','%Y-%c-%d %H:%i') AND 
+				 A.create_user in (SELECT id FROM sys_users WHERE username like '%#{in.create_user_name}%') AND 
+				 A.last_user in (SELECT id FROM sys_users WHERE username like '%#{in.last_user_name}%') 
+			 ORDER BY A.version_status, A.is_current, A.disp_order, A.lib_type, A.version_id DESC
+		]]></sql>
+		<out>
+			<stc name="pagehead" value="pagehead" />
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="version" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	<srv id="busi.version.library.query" desc="查询版本资料库树">
+		<sql id="library" alwayarray="true" condition="get('in.id')==null or get('in.id').isEmpty()"><![CDATA[
+			select *, case 
+				when id_type=0 then 'libtype' 
+				when id_type=1 then 'library'
+				when id_type=2 then 'profession'
+				when id_type=3 then 'classify'
+				when id_type=4 then 'archives'
+				when id_type=5 and isrelated<=0 then 'files'
+				when id_type=5 and isrelated>0 then 'files2'
+				when id_type=9 then 'common'
+				else 'unknow' 
+				end type
+			from (
+				select a.*, a.fs_id id, a.parent_id pid, concat(a.fs_code,a.fs_name) text, 
+					(select count(1) from fms_foldertemplate_formsfiles_#{in.version_id} where fs_id=a.fs_id) isrelated,
+					(select count(1) from fms_library_#{in.version_id} where parent_id=a.fs_id) children 
+				from fms_library_#{in.version_id} a 
+				where fs_id in (select fs_id from fms_version where version_id=#{in.version_id})
+			)x
+			order by disp_order
+		]]></sql>
+		<sql id="library" alwayarray="true" condition="get('in.id')!=null and !get('in.id').isEmpty()"><![CDATA[
+			select *, case 
+				when id_type=0 then 'libtype' 
+				when id_type=1 then 'library'
+				when id_type=2 then 'profession'
+				when id_type=3 then 'classify'
+				when id_type=4 then 'archives'
+				when id_type=5 and isrelated<=0 then 'files'
+				when id_type=5 and isrelated>0 then 'files2'
+				when id_type=9 then 'common'
+				else 'unknow' 
+				end type
+			from (
+				select a.*, a.fs_id id, a.parent_id pid, concat(a.fs_code,a.fs_name) text, 
+					(select count(1) from fms_foldertemplate_formsfiles_#{in.version_id} where fs_id=a.fs_id) isrelated,
+					(select count(1) from fms_library_#{in.version_id} where parent_id=a.fs_id) children 
+				from fms_library_#{in.version_id} a 
+				where parent_id='#{in.id}'
+			)x
+			order by disp_order
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="library" value="library" />
+		</out>
+	</srv>
+	
+	<!-- 业务参数**************************************************************************************************************** -->
+	
+	<srv id="busi.config.query" desc="查询业务参数">
+		<sql id="config" alwayarray="true" condition="get('in.id')==null or get('in.id').isEmpty()"><![CDATA[
+			select a.*,(select count(1) from fms_config where parentid=a.id) haschild
+			from fms_config a 
+			where a.parentid is null 
+			order by a.disporder, a.code, a.id
+		]]></sql>
+		<sql id="config" alwayarray="true" condition="get('in.id')!=null and !get('in.id').isEmpty()"><![CDATA[
+			select a.*,(select count(1) from fms_config where parentid=a.id) haschild
+			from fms_config a 
+			where a.parentid='#{in.id}' 
+			order by a.disporder, a.code, a.id
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="config" />
+		</out>
+	</srv>
+	
+	<srv id="busi.config.parents.query" desc="查询业务参数所有上级">
+		<sql id="parents" alwayarray="true" condition="get('in.id')!=null and !get('in.id').isEmpty()" errorcode="10012" errormsg="请重新刷新页面"><![CDATA[
+			SELECT b.id, b.name
+			FROM (
+			    SELECT
+			        @id AS _id,
+			        (SELECT @id := parentid FROM fms_config WHERE id = _id) AS parentid,
+			        @lvl := @lvl + 1 AS lvl
+			    FROM
+			        (SELECT @id := #{in.id}, @lvl := 0) vars, fms_config h
+			    WHERE @id <> 0
+			) a JOIN fms_config b ON a._id = b.id
+			ORDER BY a.lvl DESC
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="parents" />
+		</out>
+	</srv>
+	
+	<srv id="busi.config.add" desc="新增业务参数信息">
+		<sql id="add" errorcode="10011" errormsg="新增业务参数信息失败"><![CDATA[
+			 insert into fms_config(*,create_user,create_date) values(*,'#{in.syshead.userid}',NOW())
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="busi.config.update" desc="修改业务参数信息">
+		<quit condition="get('in.id')==null or get('in.id').isEmpty()" errorcode="10011" errormsg="提交信息错误，无法修改！"/>
+		<sql id="upd" errorcode="10012" errormsg="修改业务参数信息失败"><![CDATA[
+			 update fms_config set *,last_user='#{in.syshead.userid}',last_date=NOW() where id='#{in.id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="busi.config.delete" desc="删除业务参数信息">
+		<quit condition="get('in.id')==null or get('in.id').isEmpty()" errorcode="10011" errormsg="提交信息错误，无法删除！"/>
+		<sql id="del" errorcode="10012" errormsg="删除业务参数信息失败"><![CDATA[
+			 delete from fms_config where id='#{in.id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	<srv id="busi.config.save" desc="批量修改业务参数信息">
+		<sql id="add" condition="get('in.add')!=null and !get('in.add').isEmpty()" errorcode="10011" errormsg="新增业务参数信息失败"><![CDATA[
+			 insert into fms_config(parentid,name,code,value1,value2,value3,disporder,identity,status,memo,create_user,create_date) 
+			 values('#{in.add.parentid}','#{in.add.name}','#{in.add.code}','#{in.add.value1}','#{in.add.value2}','#{in.add.value3}','#{in.add.disporder}','#{in.add.identity}','#{in.add.status}','@{in.add.memo}','#{in.syshead.userid}',NOW())
+		]]></sql>
+		<sql id="upd" condition="get('in.upd')!=null and !get('in.upd').isEmpty()" errorcode="10012" errormsg="修改业务参数信息失败"><![CDATA[
+			 update fms_config set 
+			 	name='#{in.upd.name}',
+			 	code='#{in.upd.code}',
+			 	value1='#{in.upd.value1}',
+			 	value2='#{in.upd.value2}',
+			 	value3='#{in.upd.value3}',
+			 	disporder='#{in.upd.disporder}',
+			 	identity='#{in.upd.identity}',
+			 	status='#{in.upd.status}',
+			 	memo='?{in.upd.memo}',
+			 	last_user='#{in.syshead.userid}',
+			 	last_date=NOW() 
+			 where id='#{in.upd.id}'
+		]]></sql>
+		<sql id="del" condition="get('in.del')!=null and !get('in.del').isEmpty()" errorcode="10012" errormsg="删除业务参数信息失败"><![CDATA[
+			 delete from fms_config where id='#{in.del.id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="busi.config.version.tree.query" desc="查询业务参数版本树">
+		<sql id="version" alwayarray="true" condition="get('in.parentid')==null or get('in.parentid').isEmpty()"><![CDATA[
+			SELECT A.*, A.parentid pid, A.name TEXT, 'folder' type, 1 isleaf, 1 haschild 
+			FROM fms_config A 
+			WHERE fn_hasVersion(A.id) AND A.parentid IS NULL 
+			ORDER BY A.disporder
+		]]></sql>
+		<sql id="version" alwayarray="true" condition="get('in.parentid')!=null and !get('in.parentid').isEmpty()"><![CDATA[
+			select *, case when haschild>0 then 'folder' else 'item' end type, haschild isleaf
+			from (
+				SELECT A.*, A.parentid pid, A.name TEXT, case when nodetype=1 then 0 else 1 end haschild
+				from fms_config A 
+				where fn_hasVersion(A.id) AND parentid='#{in.parentid}' 
+			)x
+			order by disporder
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="tree" value="version" />
+		</out>
+	</srv>
+	<srv id="busi.config.version.subtree.query" desc="查询业务参数版本树">
+		<sql id="version" alwayarray="true" condition="get('in.parentid')!=null and !get('in.parentid').isEmpty()"><![CDATA[
+			select *, case when haschild>0 then 'folder' else 'item' end type, haschild isleaf
+			from (
+				SELECT A.*, A.parentid pid, A.name TEXT, case when nodetype=1 then 0 else 1 end haschild
+				from fms_config A 
+				where fn_hasVersion(A.id) AND parentid='#{in.parentid}' 
+			)x
+			order by disporder
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="tree" value="version" />
+		</out>
+	</srv>
+	
+	<srv id="busi.config.paste.add" desc="复制粘贴业务参数信息">
+		<quit condition="get('in.copy_id')==null or get('in.copy_id').isEmpty() or get('in.paste_id')==null or get('in.paste_id').isEmpty()" errorcode="10011" errormsg="提交信息错误，无法粘贴！"/>
+		<sql id="paste" value="{call sp_copy_param('#{in.copy_id}','#{in.paste_id}','#{in.syshead.userid}',${status})}"  errorcode="10012" errormsg="粘贴业务参数失败"/>
+		<quit condition="get('paste.status')==null or get('paste.status').isEmpty() or get('paste.status').getIntValue() &lt; 0" errorcode="10013" errormsg="粘贴业务参数失败！"/>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="busi.config.version.add" desc="创建业务参数版本">
+		<quit condition="get('in.id_version')==null or get('in.id_version').isEmpty()" errorcode="10011" errormsg="提交信息错误，无法创建版本！"/>
+	
+		<sql id="version" generatedkeys="id" errorcode="10012" errormsg="创建业务参数版本失败"><![CDATA[
+			 insert into fms_config(parentID,code,name,nodetype,create_user,create_date) 
+			 values('#{in.id_version}','#{in.version_code}','#{in.version_name}',1,'#{in.syshead.userid}',NOW())
+		]]></sql>
+		<sql id="versionitem" condition="get('in.base_version')==null or get('in.base_version').isEmpty()" errorcode="10013" errormsg="创建业务参数版本失败"><![CDATA[
+			 update fms_config set parentID='#{version.id}' where id<>'#{version.id}' and parentID='#{in.id_version}'
+		]]></sql>
+		
+		<sql id="create" condition="get('in.base_version')!=null and !get('in.base_version').isEmpty()" value="{call sp_copy_param('#{in.base_version}','#{version.id}','#{in.syshead.userid}',${status})}"  errorcode="10014" errormsg="创建业务参数版本失败"/>
+		<quit condition="get('in.base_version')!=null and !get('in.base_version').isEmpty() and (get('create.status')==null or get('create.status').isEmpty() or get('create.status').getIntValue() &lt; 0)" errorcode="10015" errormsg="创建业务参数版本失败！"/>
+		
+		<sql id="old" condition="get('in.base_version')!=null and !get('in.base_version').isEmpty()" errorcode="10012" errormsg="创建业务参数版本失败"><![CDATA[
+			 select * from fms_config where parentID='#{version.id}' 
+		]]></sql>
+		<sql id="upd" condition="get('in.base_version')!=null and !get('in.base_version').isEmpty()" errorcode="10012" errormsg="创建业务参数版本失败"><![CDATA[
+			 update fms_config set parentID='#{version.id}' where parentID='#{old.id}'
+		]]></sql>
+		<sql id="del" condition="get('in.base_version')!=null and !get('in.base_version').isEmpty()" errorcode="10012" errormsg="创建业务参数版本失败"><![CDATA[
+			 delete from fms_config where id='#{old.id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="busi.config.import" desc="导入业务参数信息">
+		<sql id="init"  condition="get('in.isinit')!=null and get('in.isinit').getIntValue()==1" errorcode="10011" errormsg="初始化导入 数据失败，操作已撤销"><![CDATA[
+			DELETE FROM fms_config_import WHERE batch_number='#{in.batch_number}'
+		]]></sql>
+		
+		<sql id="sheet" condition="get('in.sheetname')!=null and !get('in.sheetname').isEmpty()" errorcode="10012" errormsg="插入数据失败，操作已撤销"><![CDATA[
+			INSERT INTO  fms_config_import(batch_number,ID,name)
+			VALUES('#{in.batch_number}','#{in.sheetid}','#{in.sheetname}')
+		]]></sql>
+		
+		<!-- A代码、B名称、C显示代码、D备注、E年限、F页数 -->
+		<sql id="ins" condition="get('in.excel')!=null and !get('in.excel').isEmpty()" errorcode="10013" errormsg="插入数据失败，操作已撤销"><![CDATA[
+			INSERT INTO  fms_config_import(batch_number,ID,parentID,code,name,value1,memo,value2,value3)
+			VALUES('#{in.batch_number}',?{in.excel.rowid},'#{in.sheetid}',?{in.excel.A},?{in.excel.B},?{in.excel.C},?{in.excel.D},?{in.excel.E},?{in.excel.F})
+		]]></sql>
+		
+		<sql id="end" condition="get('in.isend')!=null and get('in.isend').getIntValue()==1" errorcode="10014" errormsg="提交已导入的数据失败，操作已撤销"><![CDATA[
+			INSERT INTO fms_config(parentID,code,name,create_user,create_date)
+			SELECT '#{in.parentid}' parentID, ID code,name, '#{in.syshead.userid}' create_user, NOW() create_date
+			FROM fms_config_import
+			WHERE batch_number='#{in.batch_number}' AND parentID IS NULL
+		]]></sql>
+		<sql id="end2" condition="get('in.isend')!=null and get('in.isend').getIntValue()==1" errorcode="10014" errormsg="提交已导入的数据失败，操作已撤销"><![CDATA[
+			INSERT INTO fms_config(parentID,code,name,memo,value1,value2,value3,create_user,create_date)
+			SELECT (SELECT ID FROM fms_config WHERE code=A.parentID) parentID,code,name,memo,value1,value2,value3,'#{in.syshead.userid}' create_user, NOW() create_date
+			FROM fms_config_import A
+			WHERE batch_number='#{in.batch_number}' AND parentID IS NOT NULL
+		]]></sql>
+		<sql id="end3" condition="get('in.isend')!=null and get('in.isend').getIntValue()==1" errorcode="10014" errormsg="提交已导入的数据失败，操作已撤销"><![CDATA[
+			UPDATE fms_config SET code = NULL 
+			WHERE code IN (SELECT ID FROM fms_config_import WHERE batch_number='#{in.batch_number}' AND parentID IS NULL)
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<!-- 业务参数规则**************************************************************************************************************** -->
+	
+	<srv id="busi.configrule.version.query" desc="查询业务参数版本列表">
+		<sql id="version" alwayarray="true"><![CDATA[
+			 SELECT A.*,IFNULL(version_status,0) is_apply, B.username create_user_name, C.username last_user_name 
+			 FROM fms_config_version A LEFT OUTER JOIN sys_users B ON A.create_user=B.id LEFT OUTER JOIN sys_users C ON A.last_user=C.id
+			 WHERE A.version_num like '%#{in.version_num}%' AND 
+				 A.version_name like '%#{in.version_name}%' AND 
+				 A.version_memo like '%#{in.version_memo}%' AND 
+				 A.create_date >= STR_TO_DATE('#{in.create_date.start}','%Y-%c-%d %H:%i') AND A.create_date <= STR_TO_DATE('#{in.create_date.end}','%Y-%c-%d %H:%i') AND  
+				 A.last_date >= STR_TO_DATE('#{in.last_date.start}','%Y-%c-%d %H:%i') AND A.last_date <= STR_TO_DATE('#{in.last_date.end}','%Y-%c-%d %H:%i') AND 
+				 A.create_user in (SELECT id FROM sys_users WHERE username like '%#{in.create_user_name}%') AND 
+				 A.last_user in (SELECT id FROM sys_users WHERE username like '%#{in.last_user_name}%') 
+			 ORDER BY A.disp_order, A.last_date DESC, A.param_version_id DESC
+		]]></sql>
+		<out>
+			<stc name="pagehead" value="pagehead" />
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="version" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	<srv id="busi.configrule.detail.query" desc="查询业务参数版本明细">
+		<sql id="version"><![CDATA[
+			 SELECT A.*,IFNULL(version_status,0) is_apply, B.username create_user_name, C.username last_user_name 
+			 FROM fms_config_version A LEFT OUTER JOIN sys_users B ON A.create_user=B.id LEFT OUTER JOIN sys_users C ON A.last_user=C.id
+			 WHERE param_version_id='#{in.param_version_id}'
+		]]></sql>
+		<sql id="businessrule" alwayarray="true"><![CDATA[
+			 SELECT A.* 
+			 FROM fms_businessrule A INNER JOIN fms_businessrule_version_items B ON A.ruleid=B.ruleid 
+			 WHERE B.param_version_id='#{in.param_version_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="version" value="version" />
+			<arr name="businessrule" value="businessrule" />
+		</out>
+	</srv>
+	<srv id="busi.configrule.version.tree.query" desc="查询业务参数版本树">
+		<sql id="version" alwayarray="true" each="parents" condition="get('in.param_version_id')!=null and !get('in.param_version_id').isEmpty()"><![CDATA[
+			SELECT A.*, A.parentid pid, A.name TEXT, 'item' type, 0 isleaf, 0 haschild 
+			FROM fms_config A 
+			WHERE A.id IN (SELECT config_id FROM fms_config_version_items WHERE param_version_id='#{in.param_version_id}')
+			ORDER BY A.disporder
+		]]></sql>
+		<sql id="parents" alwayarray="true" condition="get('version.id')!=null and !get('version.id').isEmpty()"><![CDATA[
+			SELECT B.*,B.parentid pid, B.name TEXT, 'folder' type, 1 isleaf, 0 haschild 
+			FROM (
+			    SELECT
+			        @id AS _id,
+			        (SELECT @id := parentid FROM fms_config WHERE id = _id) AS parentid,
+			        @lvl := @lvl + 1 AS lvl
+			    FROM
+			        (SELECT @id := #{version.id}, @lvl := 0) vars, fms_config h
+			    WHERE @id <> 0
+			) a JOIN fms_config b ON a._id = b.id
+			WHERE id<>#{version.id} 
+			ORDER BY a.lvl DESC
+		]]></sql>
+		<ref id="version2" clazz="com.platform.cubism.tools.DataMap.mergeTop(#{version},'parents')"/>
+		<ref id="xtree" clazz="com.platform.cubism.tools.CreateTrees.toTree(#{version})"/>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="tree" value="xtree.tree" />
+		</out>
+	</srv>
+	
+	<srv id="busi.configrule.version.add" desc="创建业务规则版本">
+		<quit condition="get('in.version_num')==null or get('in.version_num').isEmpty()" errorcode="10011" errormsg="提交信息错误，无法创建业务规则！"/>
+	
+		<sql id="version" generatedkeys="param_version_id" errorcode="10012" errormsg="创建业务参数规则失败"><![CDATA[
+			 insert into fms_config_version(version_num,version_name,version_memo,disp_order,create_user,create_date) 
+			 values('#{in.version_num}','#{in.version_name}','#{in.version_memo}','#{in.disp_order}','#{in.syshead.userid}',NOW())
+		]]></sql>
+		<sql id="business" condition="get('in.businessrule')!=null and !get('in.businessrule').isEmpty()" errorcode="10013" errormsg="创建业务参数规则失败"><![CDATA[
+			 insert into fms_businessrule_version_items(param_version_id,ruleid) 
+			 values('#{version.param_version_id}','#{in.businessrule}')
+		]]></sql>
+		<sql id="config" condition="get('in.versions')!=null and !get('in.versions').isEmpty()" errorcode="10014" errormsg="创建业务参数规则失败"><![CDATA[
+			 insert into fms_config_version_items(param_version_id,config_id) 
+			 values('#{version.param_version_id}','#{in.versions}')
+		]]></sql>
+		<sql id="configfolder" condition="get('in.folderVersions')!=null and !get('in.folderVersions').isEmpty()" errorcode="10015" errormsg="创建业务参数规则失败"><![CDATA[
+			 insert into fms_config_version_items(param_version_id,config_id) 
+			 select '#{version.param_version_id}' param_version_id,A.id config_id
+			 from fms_config A
+			 WHERE FIND_IN_SET(A.id,fn_getConfigVersionChildren('#{in.folderVersions}'))>0 
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	<srv id="busi.configrule.version.update" desc="修改业务规则版本信息">
+		<quit condition="get('in.param_version_id')==null or get('in.param_version_id').isEmpty()" errorcode="10011" errormsg="提交信息错误，无法修改信息！"/>
+	
+		<sql id="upd" errorcode="10012" errormsg="修改业务规则版本信息失败"><![CDATA[
+			 update fms_config_version set 
+			 version_num='#{in.version_num}', 
+			 version_name='#{in.version_name}',
+			 version_memo='#{in.version_memo}',
+			 disp_order='#{in.disp_order}',
+			 last_user='#{in.syshead.userid}',
+			 last_date=NOW()
+			 where param_version_id='#{in.param_version_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	<srv id="busi.configrule.status.update" desc="设置业务规则版本状态">
+		<quit condition="get('in.param_version_id')==null or get('in.param_version_id').isEmpty()" errorcode="10011" errormsg="提交信息错误，无法修改状态！"/>
+	
+		<sql id="upd" errorcode="10012" errormsg="设置业务规则版本状态失败"><![CDATA[
+			 update fms_config_version set version_status='#{in.version_status}' where param_version_id='#{in.param_version_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	<srv id="busi.configrule.version.delete" desc="删除业务规则版本">
+		<quit condition="get('in.param_version_id')==null or get('in.param_version_id').isEmpty()" errorcode="10011" errormsg="提交信息错误，无法删除业务规则！"/>
+	
+		<sql id="del" errorcode="10012" errormsg="删除业务规则失败，请确认档案库是否已经使用了该版本"><![CDATA[
+			 delete from fms_config_version where param_version_id='#{in.param_version_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="busi.formsfiles.dir.query" desc="查询表格目录">
+		<sql id="formsfilesdir" alwayarray="true" condition="get('in.id')==null or get('in.id').isEmpty()"><![CDATA[
+			select *
+			from (
+				select a.*, a.dir_id id, a.parent_id pid, dir_name text, dir_icon icon,
+					(select count(1) from fms_formsfiles_dir where parent_id=a.dir_id) children 
+				from fms_formsfiles_dir a 
+				where parent_id is null
+			)x
+			order by parent_id,disp_order
+		]]></sql>
+		<sql id="formsfilesdir" alwayarray="true" condition="get('in.id')!=null and !get('in.id').isEmpty()"><![CDATA[
+			select *
+			from (
+				select a.*, a.dir_id id, a.parent_id pid, dir_name text, dir_icon icon,
+					(select count(1) from fms_formsfiles_dir where parent_id=a.dir_id) children 
+				from fms_formsfiles_dir a 
+				where parent_id='#{in.id}'
+			)x
+			order by parent_id,disp_order
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="formsfilesdir" value="formsfilesdir" />
+		</out>
+	</srv>
+	
+	<srv id="busi.formsfiles.dir.add" desc="新增表格目录">
+		<ref id="dir_id" clazz="com.platform.cubism.util.StringUtils.getUUID()"/>
+		<sql id="max" errorcode="10012" errormsg="新增表格目录失败"><![CDATA[
+			 select count(1)+1 cnt from fms_formsfiles_dir where parent_id='#{in.parent_id}'
+		]]></sql>
+		<sql id="add" errorcode="10012" errormsg="新增表格目录失败"><![CDATA[
+			 insert into fms_formsfiles_dir(dir_id,parent_id,dir_name,disp_order) values('#{in.dir_id}','#{in.parent_id}','#{in.dir_name}','#{max.cnt}') 
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<fld name="id">in.dir_id</fld>
+		</out>
+	</srv>
+	
+	<srv id="busi.formsfiles.dir.update" desc="修改表格目录信息">
+		<quit condition="get('in.dir_id')==null or get('in.dir_id').isEmpty()" errorcode="10011" errormsg="提交信息错误，无法修改！"/>
+		<sql id="upd" errorcode="10012" errormsg="修改表格目录信息失败"><![CDATA[
+			 update fms_formsfiles_dir set * where dir_id='#{in.dir_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="busi.formsfiles.dir.delete" desc="删除表格目录信息">
+		<quit condition="get('in.dir_id')==null or get('in.dir_id').isEmpty()" errorcode="10011" errormsg="提交信息错误，无法修改！"/>
+		<sql id="del" errorcode="10012" errormsg="删除表格目录信息失败,请先将目录下的表格移动到其它目录中"><![CDATA[
+			 delete from fms_formsfiles_dir where dir_id='#{in.dir_id}'
+		]]></sql>
+		<sql id="upd" errorcode="10013" errormsg="修改表格目录信息失败"><![CDATA[
+			 update fms_formsfiles set dir_id=null where dir_id='#{in.dir_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+</service>

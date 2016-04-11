@@ -1,0 +1,33 @@
+package com.platform.cubism.base.format;
+
+import static com.platform.cubism.util.StringUtils.hasText;
+import java.util.regex.Pattern;
+
+import com.platform.cubism.base.CField;
+
+public class FormatConvertOfString implements FormatConvert {
+	/**
+	 * %s 字符串类型 "mingrisoft" %c 字符类型 'm' %b 布尔类型 TRUE %d 整数类型（十进制） 99 %x
+	 * 整数类型（十六进制） FF %o 整数类型（八进制） 77 %f 浮点类型 99.99 %a 十六进制浮点类型 FF.35AE %e 指数类型
+	 * 9.38E+05 %% 百分比类型 ％ %g 通用浮点类型（f和e类型中较短的） %h 散列码 %n 换行符 %tx
+	 * 日期与时间类型（x代表不同的日期与时间转换符
+	 */
+	private Pattern strPattern = Pattern.compile(".*\\%[scbdxofaegh\\%].* || .*\\%tx.*");
+
+	public boolean isFormat(CField field) {
+		String format = field.getFormat();
+		if (!hasText(format)) {
+			return false;
+		}
+		if (strPattern.matcher(format).matches()) {
+			return true;
+		}
+		return false;
+	}
+
+	public String format(CField field) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+}

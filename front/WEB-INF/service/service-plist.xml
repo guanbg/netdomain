@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="service.xsd">
+
+	<srv id="pklist.sys_data_dictionary" desc="单级">
+		<sql id="pklist"  alwayarray="true" value="SELECT datavalue VALUE, CASE disptype WHEN 1 THEN concat(datavalue,'-',dataname) ELSE dataname END TEXT, extenddata, description FROM sys_data_dictionary WHERE parentid IN (SELECT id FROM sys_data_dictionary WHERE datavalue='#{in.datavalue}') ORDER BY disporder,datavalue" />
+	</srv>
+	<srv id="pklist.sys_data_dictionary.extend" desc="两级">
+		<sql id="pklist"  alwayarray="true" value="SELECT concat(datavalue,'-',extenddata) VALUE, CASE disptype WHEN 1 THEN concat(datavalue,'-',dataname) ELSE dataname END TEXT, extenddata, description FROM sys_data_dictionary WHERE parentid IN (SELECT id FROM sys_data_dictionary WHERE datavalue='#{in.datavalue}') ORDER BY disporder,datavalue" />
+	</srv>
+	
+	<srv id="pklist.sys_data_dictionary_professional_list" desc="查询企业资料员专业分类">
+		<sql id="crop"><![CDATA[
+			SELECT professional_list FROM fms_contractor_basicinfo WHERE contractor_id='#{in.contractor_id}'
+		]]></sql>
+		<sql id="pklist" alwayarray="true"><![CDATA[
+			 SELECT datavalue VALUE, CASE disptype WHEN 1 THEN concat(datavalue,'-',dataname) ELSE dataname END TEXT, extenddata, description 
+			 FROM sys_data_dictionary 
+			 WHERE parentid IN (SELECT id FROM sys_data_dictionary WHERE datavalue='professional_list') AND datavalue IN(#{crop.professional_list}) 
+			 ORDER BY disporder,datavalue
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="pklist" value="pklist" />
+		</out>
+	</srv>
+	
+	<srv id="pklist.sys_departments">
+		<sql id="pklist"  alwayarray="true" value="SELECT id VALUE, departmentname TEXT FROM sys_departments ORDER BY disporder,id" />
+	</srv>
+	<srv id="pklist.sys_groups">
+		<sql id="pklist"  alwayarray="true" value="SELECT id VALUE, groupname TEXT FROM sys_groups ORDER BY groupname,id" />
+	</srv>
+	<srv id="pklist.sys_area_province">
+		<sql id="pklist"  alwayarray="true" value="select areacode value, areaname text from sys_areas where parentid is null order by areaorder,id" />
+	</srv>
+	<srv id="pklist.sys_area_city_region.byareacode">
+		<sql id="pklist"  alwayarray="true" value="select areacode value, areaname text from sys_areas where parentid in (select id from sys_areas where areacode='#{in.areacode}') order by areaorder,id" />
+	</srv>
+	<srv id="pklist.fms_version">
+		<sql id="pklist"  alwayarray="true" value="SELECT version_id VALUE, concat(version_num,'-',version_name) TEXT FROM fms_version WHERE is_current=1 ORDER BY create_date desc" />
+	</srv>
+	
+	<srv id="pklist.contractor_basicinfo">
+		<sql id="pklist"  alwayarray="true" value="SELECT contractor_id VALUE, company_name TEXT FROM fms_contractor_basicinfo WHERE contractor_id in (select contractor_id from fms_contractor_user where user_id='#{in.syshead.userid}') or contractor_id in (select contractor_id from fms_contractor_documentor where documentor_ID in (select documentor_id from fms_contractor_user where user_id='#{in.syshead.userid}'))" />
+	</srv>
+	
+	<srv id="pklist.fms_config.version">
+		<sql id="pklist"  alwayarray="true" value="SELECT id VALUE, concat(code,'-',name) TEXT FROM fms_config WHERE nodetype=1 and parentid='#{in.id}'" />
+	</srv>
+	
+	<srv id="pklist.fms_businessrule" desc="业务规则版本列表">
+		<sql id="pklist"  alwayarray="true" value="SELECT ruleid VALUE, concat(rulename,'-',ruleversion) TEXT FROM fms_businessrule WHERE status='1' ORDER BY rulename,ruleversion" />
+	</srv>
+	<srv id="pklist.fms_config_version" desc="业务规则列表">
+		<sql id="pklist"  alwayarray="true" value="SELECT param_version_id VALUE, concat(version_num,'-',version_name) TEXT FROM fms_config_version WHERE IFNULL(version_status,0)='0' ORDER BY disp_order,last_date desc,create_date desc" />
+	</srv>
+</service>

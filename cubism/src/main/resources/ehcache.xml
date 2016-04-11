@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ehcache xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="http://www.ehcache.org/ehcache.xsd"
+         updateCheck="true" monitoring="autodetect"
+         dynamicConfig="true">
+ 
+	<diskStore path="java.io.tmpdir"/>
+ 
+    <defaultCache
+		maxEntriesLocalHeap="10000"
+		maxEntriesLocalDisk="20000"
+		eternal="false"
+		timeToIdleSeconds="300"
+		timeToLiveSeconds="900"
+		diskSpoolBufferSizeMB="1024"
+		diskExpiryThreadIntervalSeconds="120"
+		memoryStoreEvictionPolicy="LFU">
+		
+        <persistence strategy="localTempSwap"/>
+    </defaultCache>
+    
+ <!-- 
+	name :	必填属性, 缓存实例的名称
+	maxEntriesLocalHeap：必填属性,设置缓存在本地内存中最大缓存项数量（0表示无限）。（等效于旧版本中的maxElementsInMemory属性）。在实际使用中，在非分布式部署条件下，无限等效于Integer.MAX_SIZE (2147483647)。在分布式部署条件下，缓存项数量由Terracotta Server Array资源上限决定。
+	maxElementsInMemory : 设定内存中保存对象的最大值
+	overflowToDisk : 设置当内存中缓存到达maxElementsInMemory指定值时是否可以写到硬盘上
+	
+	eternal : 设置内存中的对象是否为永久驻留对象。如果是则无视timeToIdleSeconds和timeToLiveSeconds两个属性。 
+	timeToIdleSeconds : 设置对象在失效前的允许闲置时间（单位：秒）。仅当eternal=false对象不是永久有效时使用，可选属性，默认值是0，也就是可闲置时间无穷大。
+	timeToLiveSeconds : 设置对象在失效前允许存活时间（单位：秒）。最大时间介于创建时间和失效时间之间。仅当eternal=false对象不是永久有效时使用，默认是0.，也就是对象存活时间无穷大
+
+	overflowToDisk：当内存中对象数量达到maxElementsInMemory时，Ehcache将会对象写到磁盘中
+	diskSpoolBufferSizeMB：这个参数设置DiskStore（磁盘缓存）的缓存区大小。默认是30MB。每个Cache都应该有自己的一个缓冲区。     
+	maxElementsOnDisk：必填属性,硬盘最大缓存个数。默认为0，表示数量不限
+	diskPersistent：是否缓存虚拟机重启期数据 Whether the disk store persists between restarts of the Virtual Machine. The default value is false.     
+	diskExpiryThreadIntervalSeconds：磁盘失效线程运行时间间隔，默认是120秒。     
+
+	memoryStoreEvictionPolicy：当达到maxElementsInMemory限制时，Ehcache将会根据指定的策略去清理内存。默认策略是LRU（最近最少使用）。你可以设置为FIFO（先进先出）或是LFU（较少使用）。     
+	clearOnFlush：内存数量最大时是否清除
+	
+	通过使用<persistence/>子元素，可以配置缓存区的持久化策略。<persistence/>元素的主要属性如下,strategy：配置缓存区持久化的类型。可选值如下： 
+	localRestartable：仅在使用Ehcache企业版时有效。启用RestartStore，拷贝所有的缓存项（包含堆和非堆中的）到磁盘中，此选项提供了缓存快速重启能力以及对磁盘上缓存的容错能力。 
+	localTempSwap：当缓存容量达到上限时，将缓存对象 （包含堆和非堆中的）交换到磁盘中。"localTempSwap" 并不持久化缓存内容。
+	none：不持久化缓存内容。 
+	distributed：按照<terracotta>标签配置的持久化方式执行。非分布式部署时，此选项不可用。 
+	synchronousWrites：此属性仅在strategy="localRestartable"时有意义。默认false。设置为true，缓存写入方法在缓存项成功写入磁盘前不会返回。 
+	
+  -->
+    <cache name="service"
+           maxEntriesLocalHeap="10000"
+           maxEntriesLocalDisk="20000"
+           eternal="false"
+           diskSpoolBufferSizeMB="1024"
+           timeToIdleSeconds="300"
+           timeToLiveSeconds="900"
+           memoryStoreEvictionPolicy="LFU"
+           transactionalMode="off">
+        <persistence strategy="localTempSwap"/>
+    </cache>
+    
+    <cache name="resultset"
+           maxEntriesLocalHeap="10000"
+           maxEntriesLocalDisk="20000"
+           eternal="false"
+           diskSpoolBufferSizeMB="1024"
+           timeToIdleSeconds="300"
+           timeToLiveSeconds="900"
+           memoryStoreEvictionPolicy="LFU"
+           transactionalMode="off">
+        <persistence strategy="localTempSwap"/>
+    </cache>
+ 
+</ehcache>

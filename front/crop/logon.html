@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+		<title>轨道建设领域企业综合服务平台</title>
+		<link href="/favicon.ico" rel="icon" type="image/x-icon" />
+		<link rel="stylesheet" href="skin/default/crop/css/bootstrap.min.css" />
+		<link rel="stylesheet" href="skin/login/crop/logon.css" />
+		<link rel="stylesheet" href="skin/common.css" />
+		<!--[if lt IE 9]>
+			<script src="js/html5shiv.js"></script>
+			<script src="js/respond.min.js"></script>
+		<![endif]-->
+	</head>
+
+	<body class="no-skin" oncontextmenu="if(self.event)self.event.returnValue=false;return false;">
+    	<div class="well padding-0 header">
+    		<span class="pull-right margin-right-25 logo-height help"><a href="http://www.ndsmart.cn/"  target='_blank'>官网</a>　|　<a href="http://help.ndsmart.cn/HelpCenter/qiyeguanlipingtai/"  target='_blank'>帮助</a>　|　版本：V2016</span>
+    		<span class="margin-left-25"><img alt="网域科技" src="skin/login/crop/images/website_logo.png"></span>
+    	</div>
+    	
+    	<div class="row margin-lr-0 margin-top-auto" style="min-width:800px;">
+    		<div class="col-sm-offset-1 col-md-offset-2 col-lg-offset-3 col-sm-10 col-md-8 col-lg-6">
+    			<form method="post" action="logon">
+    			<div class="login_title">轨道建设领域企业综合服务平台</div>
+    			<div class="well margin-bottom-0 login-main" style="min-width:660px;">
+    			<div class="row margin-lr-0" style="min-width:600px;">
+    				<div class="col-sm-4 padding-left-0 margin-bottom-10 padding-right-auto">
+  							<input type="text" id="username" class="form-control" placeholder="用户名称">
+		    		</div>
+		    		<div class="col-sm-4 padding-left-0 margin-bottom-10 padding-right-auto">
+  							<input type="password" id="userpswd" class="form-control" placeholder="密码">
+		    		</div>
+		    		<div class="col-sm-4 padding-left-0 margin-bottom-10">
+		    			<div class="row">
+		    				<div class="col-sm-8 padding-right-auto">
+		    					<button type="button" class="btn btn-Primary btn-block" id="loginbutton"><i class="glyphicon glyphicon-ok" style="color:white;"></i>&nbsp;&nbsp;登&nbsp;&nbsp;录</button>
+		    				</div>
+		    				<div class="col-sm-4 padding-lr-0 text-center">
+			    				<div class="login-pswdback hand" style="min-width:60px;"><a id="pswdbackbutton" href="#">忘记密码</a></div> 
+				    			<div class="login-registe hand" style="min-width:60px;"><a id="registebutton" href="#">用户注册</a></div>
+		    				</div>
+		    			</div>
+		    		</div>
+    			</div></div>
+    			</form>
+    		</div>
+    	</div>
+    	
+    	<div class="row footer">
+	    	<div class=" padding-lr-0 text-center">
+				<span class="footer-margin-auto">Copyright © 2016&nbsp;轨道建设领域企业综合服务平台 All Rights Reserved</span>
+				<span >客服电话：029-81028193&nbsp;陕ICP备15014927号</span>
+	    	</div>
+    	</div>
+    	
+     	<div id="background_pic" style="z-index:-1;position:absolute;left:0px;top:0px;"></div>
+    	<div id="cropRegModalDialogContainer" class="hide2"></div>
+    	<div id="findPswdModalDialogContainer" class="hide2"></div>
+    	
+		<!--[if !IE]> -->
+			<script src="js/jquery-2.1.4.min.js"></script>
+		<!-- <![endif]-->
+		
+		<!--[if IE]>
+			<script src="js/jquery-1.11.3.min.js"></script>
+		<![endif]-->
+		
+		<!--[if !IE]> -->
+		<script type="text/javascript">
+			window.jQuery || document.write("<script src='js/jquery-2.1.4.min.js'>"+"<"+"/script>");
+		</script>
+		<!-- <![endif]-->
+		
+		<!--[if IE]>
+		<script type="text/javascript">
+ 			window.jQuery || document.write("<script src='js/jquery-1.11.3.min.js'>"+"<"+"/script>");
+		</script>
+		<![endif]-->
+		
+		<script type="text/javascript">
+			if("ontouchend" in document) document.write("<script src='js/jquery.mobile-1.4.5.min.js'>"+"<"+"/script>");
+		</script>
+		<script src="js/bootstrap.min.js"></script>
+		<script src="js/bgstretcher.js"></script>
+		<script src="js/json3.min.js"></script>
+		<script src="js/invockeservice.js"></script>
+		<script src="js/md5.js"></script>
+		
+		<script type="text/javascript">
+		if (self != top) {window.top.location.replace(top.location.pathname);}
+		
+		jQuery(function($){
+		    document.oncontextmenu = function(e){
+				if (e) {
+					e.returnValue = false;
+				}
+				return false;
+			}; 
+			
+			var h=$(window).height(),w=$(window).width();//屏幕分辨率的高度
+			$("#background_pic img").css("height",h);
+			$('#background_pic').height(h).bgStretcher({
+				images: ['skin/login/crop/images/1.jpg', 'skin/login/crop/images/2.jpg', 'skin/login/crop/images/3.jpg', 'skin/login/crop/images/4.jpg'],
+				imageWidth: w, 
+				imageHeight: h, 
+				slideDirection: 'N',
+				nextSlideDelay: 5*1000,
+				slideShowSpeed: 2000,
+				transitionEffect: 'fade',
+				sequenceMode: 'normal',
+				anchoring: 'center center',
+				anchoringImg: 'center center',
+				preloadImg: true
+			});	
+			
+			var submitFlag = false;
+			
+			$("#username,#userpswd,#loginbutton").keydown(function(event){
+			   if(!submitFlag && event.keyCode == 13){
+				   $('#loginbutton').trigger("click");
+			   }
+			});
+			
+			//系统登录
+			$('#loginbutton').click(function(){
+				if(submitFlag){
+					return false;
+				}
+				if(!$("#username").val()){
+				   	$("#username").val("").focus();
+					return false;
+			   	}
+			   	if(!$("#userpswd").val()){
+				   	$("#userpswd").val("").focus();
+					return false;
+			   	}
+			   	submitFlag = true;
+			   	$('#loginbutton').prop("disabled",true);
+			   	
+				var dt = {
+					username:$("#username").val(),
+					userpswd:hex_md5(hex_md5($("#userpswd").val()))
+				};
+				
+				$.ajax({
+			    	type : "get", 
+			        url : "logon?"+(new Date().getTime()), 
+			        data : dt, 
+			        async : false, 
+			        success : function(data, textStatus, jqXHR){
+			        	var ret = data.retHead || data.rethead || data;
+			            if(ret.status == "S"){
+				    	    $("form")[0].submit();
+			        	}
+			        	else{
+				        	var msg = ret.msgarr || ret.msgArr;
+				        	//bootboxAlert('提示信息', msg[0].code+" "+msg[0].desc, msg[0].level);
+				            alert(msg[0].code+" "+msg[0].desc);
+				            submitFlag = false;
+				            $('#loginbutton').prop("disabled", false);
+			        	}
+			        },
+			        error:function(data){
+			        	alert('系统错误！\n'+data.responseText);
+			        	submitFlag = false;
+			        	$('#loginbutton').prop("disabled", false);
+			        }
+				});
+			});
+			
+			//用户注册
+			$('#registebutton').click(function(){
+				if($('#cropRegModalDialogContainer').html()){
+					$('#cropRegModalDialogContainer').show();
+					$('#cropRegModalDialog').modal({backdrop:false,show:true});
+				}
+				else{
+					var timestamp = (new Date()).valueOf();
+					$.ajaxSetup({cache: false});//关闭AJAX相应的缓存
+					$("#cropRegModalDialogContainer").load("crop/reg.jsp?"+timestamp, null, function(){
+						$.getScript('crop/reg.js');
+
+						$('#cropRegModalDialogContainer').show();
+						$('#cropRegModalDialog').modal({backdrop:false,show:true});
+					});
+				}
+			});
+			
+			//忘记密码
+			$('#pswdbackbutton').click(function(){
+				if($('#findPswdModalDialogContainer').html()){
+					$('#findPswdModalDialogContainer').show();
+					$('#findPswdModalDialog').modal({backdrop:false,show:true});
+				}
+				else{
+					var timestamp = (new Date()).valueOf();
+					$.ajaxSetup({cache: false});//关闭AJAX相应的缓存
+					$("#findPswdModalDialogContainer").load("crop/findPswd.jsp?"+timestamp, null, function(){
+						$.getScript('crop/findPswd.js');
+
+						$('#findPswdModalDialogContainer').show();
+						$('#findPswdModalDialog').modal({backdrop:false,show:true});
+					});
+				}
+			});
+		});
+		</script>
+	</body>
+</html>		

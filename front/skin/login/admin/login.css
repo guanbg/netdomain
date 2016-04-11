@@ -1,0 +1,190 @@
+@CHARSET "UTF-8";
+
+body {
+	overflow-x: hidden;
+	overflow-y: hidden;
+}
+.background-img2{
+	width:100%;
+	height: 100%;
+	margin: 0 auto;
+	padding: 0px;
+	background-position: 50% 0%;
+	background:transparent url("./images/dlbg.png") repeat scroll 0px 0px !important;
+	position:absolute;
+	left:0px;
+	top:60px;
+	z-index:-2;
+}
+.background-img{
+	width: 100%;
+	height: 100%;
+	margin: 0 auto;
+	padding: 0px;
+	background-position: 50% 0%;
+	background:transparent url("./images/loginimg.jpg") no-repeat scroll center 0px;
+	position:absolute;
+	left:0px;
+	top:60px;
+	z-index:-1;
+}
+
+.header {
+	border: 0px;
+	padding:0px 20px 0px 20px !important;
+	margin-bottom: 120px !important;
+	height:60px;
+	background: #333B41;
+}
+
+.help{
+	color: #c6c6c6;
+	line-height:60px;
+}
+.help a{
+	color: #c6c6c6;
+}
+.footer {
+	position: fixed;
+	left: 0;
+	bottom: 10px;
+	width: 100%;
+	margin: 0px;
+	color: #666;
+	font-weight:400;
+}
+
+.panel{
+	border:0px;
+	box-shadow:none;
+	margin-bottom:0px;
+	background-color:rgba(255, 255, 255, 0) !important;
+}
+.panel-heading{
+	border:0px;
+	background-color:rgba(255, 255, 255, 0) !important;
+}
+.panel-title{
+	font-size:22px;
+	color:#666;
+	text-align:center;
+}
+#username{
+	height:38px;
+	line-height:38px;
+	border-radius:0px;
+	background:transparent url("./images/zh.jpg") no-repeat 4px center;
+	padding-left: 30px;
+}
+#userpswd {
+	height:38px;
+	line-height:38px;
+	border-radius:0px;
+	background:transparent url("./images/mm.jpg") no-repeat 4px center;
+	padding-left: 30px;
+}
+#validatecode{
+	height:38px;
+	line-height:38px;
+	border-radius:0px;
+}
+#validatecodeimg{
+	height:30px;
+	width:100px;
+	margin-top:-2px;
+}
+#loginbutton{
+	background-color:#0099CB;
+	height:38px;
+	font-size:16px;
+	font-weight:400;
+	border-radius:0px;
+}
+#loginbutton:hover {
+  color: #fff;
+  background-color: #007ea7;
+  border-color: #204d74;
+}
+/*
+background-size需要两个值，它的类型可以是像素（px）、百分比（%）或是auto，还可以是cover和contain。
+第一个值为背景图的width，另外一个值用于指定背景图上的height，如果只设定1个值，则第2个默认为auto，但当值为cover和contain时除外
+
+cover：保持图像的宽高比例，将图片缩放到正好完全覆盖定义的背景区域，其中有一边和背景相同。
+contain：保持图像的宽高比例，将图片缩放到宽或者高正好适应定义背景的区域，但背景仍在定义的区域之内，被包含。
+
+为背景图片设置宽高，图片会直接被拉伸或缩放，不保持原来的比例。
+如果只设置一个数值，另外一个值默认为auto，它将按图片原比例来伸缩
+
+这里需要特别注意一下，图片大小不是按背景图片大小的百分数来计算的，而是装载背景图的元素的百分比来计算。
+*/
+@media ( max-width : 767px) {
+	.header {
+		margin-bottom: 120px !important;
+	}
+	.background-img{
+		top:10px;
+		-moz-background-size:auto 90%;
+		background-size:auto 90%;
+	}
+}
+@media ( min-width : 768px) {
+	.header {
+		margin-bottom: 140px !important;
+	}
+	.background-img{
+		top:20px;
+		-moz-background-size:auto 85%;
+		background-size:auto 85%;/*702px 464px;*/
+	}
+	.background-img2{
+		top:20px;
+		-moz-background-size:566px 3px;
+		background-size:566px 3px;
+	}
+}
+
+@media ( min-width : 992px) {
+	.header {
+		margin-bottom: 150px !important;
+	}
+	.background-img{
+		top:20px;
+		-moz-background-size:auto 85%;
+		background-size:auto 85%;/*790px 522px;*/
+	}
+	.background-img2{
+		top:40px;
+		-moz-background-size:708px 3px;
+		background-size:637px 3px;
+	}
+}
+@media ( min-width : 1200px) {
+	.header {
+		margin-bottom: 160px !important;
+	}
+	.background-img{
+		top:10px;
+		-moz-background-size:878px 581px;
+		background-size:878px 581px;
+	}
+	.background-img2{
+		top:10px;
+		-moz-background-size:708px 3px;
+		background-size:708px 3px;
+	}
+}
+@media ( min-width : 1600px) {
+	.header {
+		margin-bottom: 200px !important;
+	}
+	.background-img{
+		top:60px;
+		-moz-background-size:878px 581px;
+		background-size:878px 581px;
+	}
+	.background-img2{
+		top:60px;
+		-moz-background-size:708px 3px;
+		background-size:708px 3px;
+	}
+}

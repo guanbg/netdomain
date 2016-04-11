@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="service.xsd" 
+	defaultlogbefore="sys.log.before" defaultlogafter="sys.log.after">
+	
+	<!-- 测试**************************************************************************************************************** -->
+		
+	<srv id="version.query" desc="版本信息">
+		<sql id="version" errorcode="10012" alwayarray="true" errormsg="查询账户信息失败"><![CDATA[
+			 select * from fms_version where version_num='#{in.version_num}' and version_name='#{in.version_name}' and version_memo='#{in.version_memo}' and is_current='#{in.is_current}' and create_date='#{in.create_date}' and create_user='#{in.create_user}' and last_date='#{in.last_date}' and last_user='#{in.last_user}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="version" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	
+	<srv id="version.add" desc="新建版本信息">
+		<sql id="insert" errorcode="10012" errormsg="新增用户失败，输入数据错误，请确认"><![CDATA[
+			insert into fms_version(version_num,version_name,version_memo,is_current,create_date,create_user,last_date,last_user) 
+			values 
+			('#{in.version_num}','#{in.version_name}','#{in.version_memo}','#{in.is_current}',NOW(),'#{in.syshead.userid}','#{in.last_date}','#{in.last_user}')
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="version.update" desc="修改版本信息">
+	<quit condition="get('in.version_num')==null or get('in.version_num').isEmpty()" errorcode="10011" errormsg="修改失败，上送数据不正确,请重试"/>
+		<sql id="id" value="select * from fms_version where version_num='#{in.version_num}'" />
+		<quit condition="get('in.version_num')==null or get('in.version_num').isEmpty()" errorcode="10011" errormsg="修改失败，上送数据不正确,请重试"/>
+		
+		<sql id="select" value="update fms_version set version_name='#{in.version_name}',version_memo='#{in.version_memo}', is_current='#{in.is_current}',create_date='#{in.create_date}',create_user='#{in.create_user}',last_date=NOW(),last_user='#{in.syshead.userid}' where version_num='#{in.version_num}'" />
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="version.select" desc="修改查询版本信息">
+		
+		<quit condition="get('in.id')==null or get('in.id').isEmpty()" errorcode="10011" errormsg="查询失败，上送数据不正确,请重试"/>
+		<sql id="version" value="select * from fms_version where version_num='#{in.id}'" />
+	<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="version" value="version" />
+		</out>
+	</srv>
+	
+	<srv id="version.delete" desc="删除版本">
+		<quit condition="get('in.id')==null or get('in.id').isEmpty()" errorcode="10011" errormsg="删除版本失败，上送数据不正确,请重试"/>
+		<sql id="delete" value="delete from fms_version where version_num='#{in.id}'"/>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+</service>

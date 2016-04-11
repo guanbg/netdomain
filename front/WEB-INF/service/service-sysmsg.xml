@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="service.xsd" 
+	defaultlogbefore="sys.log.before" defaultlogafter="sys.log.after">
+	<srv id="msg.query" desc="消息信息">
+		<sql id="msg" alwayarray="true" errorcode="10012" errormsg="查询消息信息失败"><![CDATA[
+			 select *
+			 ,(select count(receive_id) from sys_msg_receive WHERE msg_id=a.msg_id and read_time is null) count_send
+		     ,(select count(receive_id) from sys_msg_receive WHERE msg_id=a.msg_id  and read_time is not null) count_read
+			 from sys_msg a where 
+			 msg_id='#{in.msg_id}' and 
+			 send_user='#{in.syshead.userid}' and 
+			 msg_title='#{in.msg_title}' and 
+			 msg_text='#{in.msg_text}' and 
+			 attechment='#{in.attechment}' and 
+			 send_time='#{in.send_time}' and 
+			 msg_status='#{in.msg_status}'
+			 order by msg_id desc
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="msg" />
+			<fld name="pageSize">pagehead.pagecount</fld>
+			<fld name="page">pagehead.currentpage</fld>
+			<fld name="total">pagehead.totalpage</fld>
+			<fld name="records">pagehead.totalrecord</fld>
+		</out>
+	</srv>
+	
+	<srv id="msg.querybyuser" desc="参建单位收到的消息">
+		<sql id="msg" alwayarray="true" errorcode="10012" errormsg="查询消息信息失败"><![CDATA[
+			select a.msg_id,b.receive_id,b.read_time,
+			(select username FROM sys_users  WHERE ID=a.send_user) send_user_name,
+			a.send_user,a.msg_title,a.msg_text,
+			date_format(a.send_time,'%Y-%m-%d %H:%I:%S') send_time 
+			from sys_msg a 
+			left outer join sys_msg_receive b
+			on a.msg_id=b.msg_id
+			where b.receive_user = '#{in.contractor_id}' and
+			a.msg_status=2
+			order by a.msg_id desc
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="msg" />
+		</out>
+	</srv>
+	
+	<srv id="msg.updbyuser" desc="参建单位阅读消息">
+		<sql id="msg" alwayarray="true" errorcode="10012" errormsg="查询消息信息失败SSS"><![CDATA[
+			update sys_msg_receive
+			set read_time = now()
+			where receive_id = '#{in.receive_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="msg" />
+		</out>
+	</srv>
+	
+	<srv id="msg.add" desc="新建消息">
+		<ref id="msg_id" clazz="com.platform.cubism.util.StringUtils.getUUID()"/>
+		<sql id="msg_add" generatedkeys="msg_id" errorcode="10012" errormsg="新增消息失败，输入数据错误，请确认"><![CDATA[
+			insert into sys_msg
+			(send_user,msg_title,msg_text,attechment,send_time,msg_status) 
+			values 
+			('#{in.syshead.userid}','#{in.msg_title}','@{in.msg_text}','#{in.attechment}',now(),'#{in.msg_status}')
+		]]></sql>
+		<sql id="msg_receive_add" condition="get('in.receive_user_ids')!=null and get('in.receive_user_ids').getStringValues(',')!='0' and !get('in.receive_user_ids').getStringValues(',').contains('0,')"><![CDATA[
+			insert into sys_msg_receive(receive_user,msg_id)
+			values
+			('#{in.receive_user_ids}','#{msg_add.msg_id}')
+		]]></sql>
+		<sql id="msg_receive_add" condition="get('in.receive_user_ids')!=null and (get('in.receive_user_ids').getStringValues(',')=='0' or get('in.receive_user_ids').getStringValues(',').contains('0,'))"><![CDATA[
+			insert into sys_msg_receive(receive_user,msg_id)
+			select contractor_id,'#{msg_add.msg_id}' msg_id
+			from fms_contractor_basicinfo
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="msg.update" desc="修改信息">
+		<quit condition="get('in.msg_id')==null or get('in.msg_id').isEmpty()" errorcode="10011" errormsg="查询失败，上送数据不正确,请重试"/>
+		
+		<sql id="msg_upd" errorcode="10012" errormsg="操作失败，输入数据错误，请确认"><![CDATA[
+			update sys_msg 
+			set 
+			msg_title='#{in.msg_title}',
+			msg_text='@{in.msg_text}',
+			msg_status = '#{in.msg_status}'
+			where msg_id = '#{in.msg_id}'
+		]]></sql>
+		<sql id="msg_receive_del" ><![CDATA[
+			delete from sys_msg_receive
+			where msg_id = '#{in.msg_id}'
+		]]></sql>
+		<sql id="msg_receive_add" ><![CDATA[
+			insert into sys_msg_receive(receive_user,msg_id)
+			values
+			('#{in.receive_user_ids}','#{in.msg_id}')
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+	
+	<srv id="msg.select" desc="修改查询信息">
+		<quit condition="get('in.msg_id')==null or get('in.msg_id').isEmpty()" errorcode="10011" errormsg="查询失败，上送数据不正确,请重试"/>
+		<sql id="msg_upd" errorcode="10012" errormsg="操作失败，输入数据错误，请确认"><![CDATA[
+			select *,
+			(select group_concat(receive_user) from sys_msg_receive where msg_id=a.msg_id) receive_user_ids,
+			(select group_concat(company_name) from fms_contractor_basicinfo where contractor_id in(select receive_user from sys_msg_receive where msg_id=a.msg_id)) receive_user_names
+			from sys_msg a where msg_id='#{in.msg_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="msg_upd" value="msg_upd" />
+		</out>
+	</srv>
+	
+	<srv id="msg.selectandlook" desc="查询消息和阅读情况">
+		<quit condition="get('in.msg_id')==null or get('in.msg_id').isEmpty()" errorcode="10011" errormsg="查询失败，上送数据不正确,请重试"/>
+		<sql id="msg_upd" errorcode="10012" errormsg="操作失败，输入数据错误，请确认"><![CDATA[
+			select *,
+			(select group_concat(receive_user) from sys_msg_receive where msg_id=a.msg_id) receive_user_ids,
+			(select group_concat(company_name) from fms_contractor_basicinfo where contractor_id in(select receive_user from sys_msg_receive where msg_id=a.msg_id)) receive_user_names
+			,(select COUNT(receive_id) FROM sys_msg_receive WHERE msg_id=a.msg_id AND read_time is null) count_send
+		    ,(select COUNT(receive_id) FROM sys_msg_receive WHERE msg_id=a.msg_id  AND read_time is not null) count_read
+		     ,(SELECT GROUP_CONCAT(company_name) FROM fms_contractor_basicinfo WHERE contractor_id IN(SELECT receive_user FROM sys_msg_receive WHERE msg_id=a.msg_id AND read_time IS  NULL)) receive_user_names_send 
+		    ,(SELECT GROUP_CONCAT(company_name) FROM fms_contractor_basicinfo WHERE contractor_id IN(SELECT receive_user FROM sys_msg_receive WHERE msg_id=a.msg_id AND read_time IS NOT  NULL)) receive_user_names_read
+			from sys_msg a where msg_id='#{in.msg_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<stc name="msg_upd" value="msg_upd" />
+		</out>
+	</srv>
+	
+	<srv id="msg.selectandlookhistory" desc="查询消息和阅读历史情况">
+		<quit condition="get('in.msg_id')==null or get('in.msg_id').isEmpty()" errorcode="10011" errormsg="查询失败，上送数据不正确,请重试"/>
+		<sql id="msg_upd" alwayarray="true" errorcode="10012" errormsg="操作失败，输入数据错误，请确认"><![CDATA[
+			select a.msg_id,receive_id,a.receive_user,b.company_name,read_time from sys_msg_receive a
+			left outer join fms_contractor_basicinfo b 
+			on a.receive_user = b.contractor_id
+			where a.msg_id ='#{in.msg_id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+			<arr name="rows" value="msg_upd" />
+		</out>
+	</srv>
+	
+	<srv id="msg.delete" desc="删除信息">
+		<quit condition="get('in.id')==null or get('in.id').isEmpty()" errorcode="10011" errormsg="删除信息失败，上送数据不正确,请重试"/>
+		<sql id="msg">
+		<![CDATA[
+			delete from sys_msg where msg_id='#{in.id}'
+		]]></sql>
+		<out>
+			<stc name="rethead" value="rethead" />
+		</out>
+	</srv>
+</service>

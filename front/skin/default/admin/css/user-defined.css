@@ -1,0 +1,15 @@
+@CHARSET "UTF-8";
+
+.achive_file_container {
+	background:rgb(251, 251, 251) none repeat scroll 0% 0%;
+	position: fixed;
+	top: 0px;
+	right: 0px;
+	width: 60%;
+}
+.no-float{
+	float:none;
+}
+.widget-toolbar a{
+	margin-left:15px;
+}

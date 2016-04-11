@@ -1,0 +1,212 @@
+@CHARSET "UTF-8";
+
+/*导航条背景*/
+.main-top-nav {
+	/*position: fixed;*/
+	left: 0;
+	top: 0;
+	width: 100%;
+	/*z-index:99999;*/
+	background: #354052 !important;
+}
+
+/*导航菜单基本样式*/
+.nav-tabs > li > a{
+	height: 60px;
+	color: #c6c6c6;
+	font-size: 14px;
+	text-align: center;
+	border:0px !important;
+	width:100px;
+	padding:6px 20px 10px 20px;
+}
+/*导航菜单图片基本样式*/
+span.img{
+	display: block;
+	height: 28px;
+	width: 60px;
+}
+.icon1{background: url(../img/ico1.png) no-repeat center 8px;}
+.icon2{background: url(../img/ico2.png) no-repeat center 8px;}
+.icon3{background: url(../img/ico3.png) no-repeat center 8px;}
+.imgvalue{background-image:url(../img/000.png);}
+.add{background-image:url(../img/add.png);display:block;}
+.upd{background-image:url(../img/upd.png);display:block;}
+.del{background-image:url(../img/del.png);display:block;}
+.business{background-image:url(../img/business.jpg);width: 150px;}
+.account{background-image:url(../img/account.jpg);width: 212px;}
+.photo{background-image:url(../img/photo.png);}
+.pointer{cursor: pointer;}
+.nav-tabs > li > a:hover .icon1, .nav-tabs>li.active>a .icon1, .nav-tabs>li.active>a:focus .icon1, .nav-tabs>li.active>a:hover .icon1{background: url(../img/ico11.png) no-repeat center 8px;}
+.nav-tabs > li > a:hover .icon2, .nav-tabs>li.active>a .icon2, .nav-tabs>li.active>a:focus .icon2, .nav-tabs>li.active>a:hover .icon2{background: url(../img/ico22.png) no-repeat center 8px;}
+.nav-tabs > li > a:hover .icon3, .nav-tabs>li.active>a .icon3, .nav-tabs>li.active>a:focus .icon3, .nav-tabs>li.active>a:hover .icon3{background: url(../img/ico33.png) no-repeat center 8px;}
+
+/*导航菜单选中时的样式*/
+.nav-tabs>li.active>a, .nav-tabs>li.active>a:focus, .nav-tabs>li.active>a:hover{
+	background-color: #2a3539;
+	color: #fff;
+	border-bottom: 2px #0391bf solid !important;
+}
+
+/*暂无效果*/
+.nav-tabs > li > a:hover{
+	border-color:#EEE #EEE #DDD;
+}
+
+/*导航菜单鼠标来回移动时的样式*/
+.nav > li > a:focus, .nav > li > a:hover{
+	background-color:#2a3539;
+	color: #fff;
+	border-bottom: 2px #0391bf solid !important;
+}
+
+/*操作点击时的样式*/
+.nav .open > a, .nav .open > a:focus, .nav .open > a:hover{
+	background-color:#2a3539;
+	color: #fff;
+}
+
+/*导航分隔条*/
+.main-top-nav-spliter{
+	border-left:1px solid #504D4D;
+}
+
+@media ( max-width : 767px) {
+	.footer{
+		position: fixed;
+		left: 0;
+		bottom: 0;
+		width: 100%;
+		background:#354052;
+		color:#C6C6C6;
+		font-weight:400;
+		z-index:99999;
+	}
+	.input-group-addon{
+		padding-left:0px !important;
+		padding-right:4px !important;
+	}
+	.main-margin-bottom-10 {
+		margin-bottom: 10px !important;
+	}
+	.main-top-icon{
+		width:auto !important;
+		height:auto !important;
+		padding:2px !important;
+	}
+}
+
+@media ( min-width : 768px) {
+	.main-padding-left-10 {
+		padding-left: 10px !important;
+	}
+	.main-padding-right-10 {
+		padding-right: 10px !important;
+	}
+	.main-margin-bottom-50 {
+		margin-bottom: 50px !important;
+	}
+	.footer{
+		position: fixed;
+		left: 0;
+		bottom: 0;
+		width: 100%;
+		background:#354052;
+		height：40px;
+		line-height:40px;
+		color:#C6C6C6;
+		font-weight:400;
+		z-index:99999;
+	}
+	.footer .margin-left-15{
+		margin-left:15px !important;
+	}
+	.footer .margin-right-15{
+		margin-right:15px !important;
+	}
+}
+
+a{
+	color:#354052;
+}
+a.active{
+	color:#337AB7;
+}
+.padding-left-only-15>p{
+	background:#F5F5F5;
+}
+.panel-user-defined{
+	border:0px !important;
+	margin-bottom:0px;
+	box-shadow:none !important;
+}
+.panel-heading-user-defined{
+	border-bottom:2px solid transparent;
+}
+.panel-heading-dashed{
+	border-bottom:1px dashed #DDDDDE !important;
+	padding:4px 0px;
+}
+
+.panel-head-line{
+	border-bottom:2px solid rgb(198, 198, 198);
+	padding-left:0px;
+	
+}
+.panel-default > .panel-heading-user-defined{
+	padding-left:0px !important;
+	background-color:transparent !important;/*去掉背景色*/
+}
+.table > thead > tr > th{
+	border-bottom:1px solid #C2C5CB;
+}
+.form-control{
+	border-radius:0px;
+}
+.editable-click.editable-disabled{
+	border-bottom:1px solid #CCC;
+}
+.editable-click.editable-disabled:focus{
+	border-color:#66AFE9;
+}
+
+/**xeditable 控件日期选择框样式*/
+.icon-th,.icon-arrow-left,.icon-arrow-right{
+  position: relative;
+  top: 1px;
+  display: inline-block !important;
+  font-family: 'Glyphicons Halflings';
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.icon-th:before {
+  content: "\e109";
+}
+.icon-arrow-left:before {
+  content: "\e091";
+}
+.icon-arrow-right:before {
+  content: "\e092";
+}
+
+body{
+	overflow:hidden;
+}
+#contentMain{
+	overflow-y:auto;
+	overflow-x:hidden;
+}
+.gray{
+	color:#888;
+}
+.green{
+	color:#399239;
+}
+
+.jstree-node div {
+	white-space:normal;
+}

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+		<title>轨道建设领域企业综合管理平台</title>
+		<link href="/favicon.ico" rel="icon" type="image/x-icon" />
+		<link rel="stylesheet" href="skin/default/admin/css/bootstrap.min.css" />
+		<link rel="stylesheet" href="skin/login/admin/login.css" />
+		<link rel="stylesheet" href="skin/common.css" />
+		<!--[if lt IE 9]>
+			<script src="js/html5shiv.js"></script>
+			<script src="js/respond.min.js"></script>
+		<![endif]-->
+	</head>
+
+	<body class="no-skin" oncontextmenu="if(self.event)self.event.returnValue=false;return false;">
+    
+    	<div class="well header">
+    		<span class="pull-right margin-right-25 logo-height help"><a href="http://www.ndsmart.cn/"  target='_blank'>官网</a>　|　<a href="http://help.ndsmart.cn/HelpCenter/qiyeguanlipingtai/"  target='_blank'>帮助</a>　|　版本：V2016</span> 
+    		<img src="skin/login/admin/images/logo.png">
+    	</div>
+    	
+    	<div class="row margin-lr-0">
+    		<div class="col-sm-offset-6 col-sm-4 col-md-3" style="min-width:380px;">
+		    	<div class="panel panel-default">
+		  			<div class="panel-heading">
+		    			<h3 class="panel-title">轨道建设领域企业综合管理平台</h3>
+		  			</div>
+		  			<div class="panel-body">
+		    			<form method="post" action="login">
+							<div class="row margin-bottom-10">
+								<div class="col-sm-12">
+									<input name="username" id="username" class="form-control" placeholder="账号" type="text">
+								</div>
+							</div>
+							<div class="row margin-bottom-10">
+								<div class="col-sm-12">
+									<input id="userpswd" class="form-control" placeholder="密码" type="password">
+								</div>
+							</div>
+							<div class="input-group margin-bottom-10">
+								<input name="validatecode" id="validatecode" class="form-control" placeholder="验证码" type="text">
+								<span class="input-group-addon"><img id="validatecodeimg" src="" style="cursor:pointer"></span>
+							</div>
+							
+							<button type="button" class="btn btn-primary medium-large btn-block" id="loginbutton"><i class="glyphicon glyphicon-ok"></i>&nbsp;&nbsp;登&nbsp;&nbsp;录</button>
+						</form>
+		  			</div>
+				</div>
+    		</div>
+    	</div>
+    	<div class="row footer">
+	    	<div class=" padding-lr-0 text-center">
+				技术支持：029-81028193&nbsp; &nbsp; 
+				Copyright © 2016&nbsp;轨道建设领域企业综合管理平台 All Rights Reserved
+	    	</div>
+    	</div>
+		<div class="background-img">&nbsp;</div>
+		<div class="background-img2">&nbsp;</div>
+		<!--[if !IE]> -->
+			<script src="js/jquery-2.1.4.min.js"></script>
+		<!-- <![endif]-->
+		
+		<!--[if IE]>
+			<script src="js/jquery-1.11.3.min.js"></script>
+		<![endif]-->
+		
+		<!--[if !IE]> -->
+		<script type="text/javascript">
+			window.jQuery || document.write("<script src='js/jquery-2.1.4.min.js'>"+"<"+"/script>");
+		</script>
+		<!-- <![endif]-->
+		
+		<!--[if IE]>
+		<script type="text/javascript">
+ 			window.jQuery || document.write("<script src='js/jquery-1.11.3.min.js'>"+"<"+"/script>");
+		</script>
+		<![endif]-->
+		
+		<script type="text/javascript">
+			if("ontouchend" in document) document.write("<script src='js/jquery.mobile-1.4.5.min.js'>"+"<"+"/script>");
+		</script>
+		<script src="js/bootstrap.min.js"></script>
+		<script src="js/bootstrap-dialog.min.js"></script>
+		<script src="js/md5.js"></script>
+		
+		<script type="text/javascript">
+		if (self != top) {window.top.location.replace(top.location.pathname);}
+		
+		jQuery(function($){
+		    document.oncontextmenu = function(e){
+				if (e) {
+					e.returnValue = false;
+				}
+				return false;
+			}; 
+			var submitFlag = false;
+			
+			$("body").keydown(function(event){
+			   if(!submitFlag && event.keyCode == 13){
+				   $('#loginbutton').trigger("click");
+			   }
+			});
+			
+			$('#loginbutton').click(function(){
+				if(submitFlag){
+					return false;
+				}
+				if(!$("#username").val()){
+				   	$("#username").val("").focus();
+					return false;
+			   	}
+			   	if(!$("#userpswd").val()){
+				   	$("#userpswd").val("").focus();
+					return false;
+			   	}
+			   	if(!$("#validatecode").val()){
+				   	$("#validatecode").val("").focus();
+					return false;
+			   	}
+			   	submitFlag = true;
+			   	$('#loginbutton').attr("disabled",true);
+			   	
+				var dt = {
+					username:$("#username").val(),
+					userpswd:hex_md5(hex_md5($("#userpswd").val())),
+					validatecode:$("#validatecode").val()
+				};
+				
+				$.ajax({
+			    	type : "get", 
+			        url : "login?"+(new Date().getTime()), 
+			        data : dt, 
+			        async : false, 
+			        success : function(data, textStatus, jqXHR){
+			        	var ret = data.retHead || data.rethead || data;
+			        	
+			            if(ret.status == "S"){
+				    	    $("form")[0].submit();
+			        	}
+			        	else{
+				        	var msg = ret.msgarr || ret.msgArr;
+				        	//bootboxAlert('提示信息', msg[0].code+" "+msg[0].desc, msg[0].level);
+				            alert(msg[0].code+" "+msg[0].desc);
+				            $('#validatecodeimg').trigger("click");
+			        	}
+			        },
+			        error:function(data){
+			        	alert('系统错误！\n'+data.responseText);
+			        	$('#validatecodeimg').trigger("click");
+			        }
+				});
+			});
+			
+			$('#validatecodeimg').click(function(){
+				$("#validatecode").val('');
+				$('#validatecodeimg').attr('src','sys.validatecode.do?'+(new Date().getTime()));
+				$('#loginbutton').attr("disabled",false);
+				submitFlag = false;
+			});
+			
+			$('#validatecodeimg').trigger("click");
+		});
+		</script>
+	</body>
+</html>
